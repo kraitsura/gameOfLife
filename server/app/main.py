@@ -6,7 +6,12 @@ import asyncio
 from typing import Set, Dict
 
 from app.simulation.simulation_manager import SimulationManager
-from app.models.simulation import ParticleRules
+from app.models.simulation import (
+    ParticleRules, 
+    ParticleType,
+    Diet,
+    ReproductionStyle
+)
 
 app = FastAPI()
 
@@ -28,31 +33,72 @@ active_connections: Set[WebSocket] = set()
 # Add some initial species
 @app.on_event("startup")
 async def startup_event():
-    # Add example species
+    # Add plants
     simulation.add_species(
-        name="Explorers",
-        color="#FF0000",
+        name="Plants",
+        color="#2ECC71",
+        rules=ParticleRules(
+            reproductionRate=0.02,  # Increased reproduction rate
+            energyConsumption=0,
+            maxSpeed=0,
+            visionRange=0,
+            socialDistance=10,
+            particleType=ParticleType.PLANT
+        ),
+        diet=Diet.HERBIVORE,
+        reproductionStyle=ReproductionStyle.SELF_REPLICATING,
+        initial_count=50  # Increased initial count
+    )
+
+    # Add herbivores
+    simulation.add_species(
+        name="Herbivores",
+        color="#3498DB",
         rules=ParticleRules(
             reproductionRate=0.001,
-            energyConsumption=0.1,
-            maxSpeed=2.0,
-            visionRange=50.0,
-            socialDistance=20.0
+            energyConsumption=0.05,  # Reduced energy consumption
+            maxSpeed=1.5,  # Slightly reduced speed
+            visionRange=60.0,  # Increased vision range
+            socialDistance=20.0,
+            particleType=ParticleType.CREATURE
         ),
+        diet=Diet.HERBIVORE,
+        reproductionStyle=ReproductionStyle.TWO_PARENTS,
         initial_count=20
     )
 
+    # Add carnivores
     simulation.add_species(
-        name="Socializers",
-        color="#00FF00",
+        name="Carnivores",
+        color="#E74C3C",
         rules=ParticleRules(
-            reproductionRate=0.002,
-            energyConsumption=0.05,
-            maxSpeed=1.5,
-            visionRange=70.0,
-            socialDistance=15.0
+            reproductionRate=0.0005,
+            energyConsumption=0.08,  # Balanced energy consumption
+            maxSpeed=2.0,  # Faster than herbivores
+            visionRange=80.0,  # Increased vision range
+            socialDistance=25.0,
+            particleType=ParticleType.CREATURE
         ),
-        initial_count=15
+        diet=Diet.CARNIVORE,
+        reproductionStyle=ReproductionStyle.SELF_REPLICATING,
+        initial_count=8  # Reduced initial count
+    )
+
+    # Add omnivores
+    simulation.add_species(
+        name="Omnivores",
+        color="#9B59B6",
+        rules=ParticleRules(
+            reproductionRate=0.00075,
+            energyConsumption=0.06,  # Balanced energy consumption
+            maxSpeed=1.8,  # Balanced speed
+            visionRange=70.0,  # Balanced vision range
+            socialDistance=22.0,
+            particleType=ParticleType.CREATURE
+        ),
+        diet=Diet.OMNIVORE,
+        reproductionStyle=ReproductionStyle.TWO_PARENTS,
+        initial_count=12  # Balanced initial count
     )
 
     await simulation.start()
@@ -61,13 +107,14 @@ async def startup_event():
 async def broadcast_state():
     while True:
         if active_connections:  # Only broadcast if there are connections
-            state = simulation.get_state()
-            for connection in active_connections.copy():
-                try:
-                    await connection.send_json(state)
-                except:
-                    active_connections.remove(connection)
-        await asyncio.sleep(1/30)  # 30 FPS update rate
+            try:
+                state = simulation.get_state()
+                await asyncio.gather(
+                    *[connection.send_json(state) for connection in active_connections]
+                )
+            except Exception as e:
+                print(f"Broadcast error: {e}")
+        await asyncio.sleep(1/60)  # Match simulation tick rate of 60 FPS
 
 @app.websocket("/ws/simulation")
 async def websocket_endpoint(websocket: WebSocket):
@@ -91,6 +138,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     name=data["name"],
                     color=data["color"],
                     rules=ParticleRules(**data["rules"]),
+                    diet=Diet(data["diet"]),
+                    reproductionStyle=ReproductionStyle(data["reproductionStyle"]),
                     initial_count=data.get("initialCount", 10)
                 )
 
