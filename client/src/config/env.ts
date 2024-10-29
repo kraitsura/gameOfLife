@@ -5,7 +5,7 @@ interface Config {
 }
 
 const config: Config = {
-    wsUrl: import.meta.env.VITE_WS_URL || 'http://localhost:8000/ws/simulation',
+    wsUrl: import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws/simulation',
     environment: import.meta.env.MODE || 'development'
 };
 

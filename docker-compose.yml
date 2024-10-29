@@ -5,8 +5,8 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
-      args:
-        - VITE_WS_URL=wss://simulation.aaryareddy.com/ws/simulation
+    environment:
+      - VITE_WS_URL=wss://simulation.aaryareddy.com/ws/simulation
     restart: unless-stopped
     networks:
       - app_network
