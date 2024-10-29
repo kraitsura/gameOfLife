@@ -6,6 +6,7 @@ services:
       context: ./client
       dockerfile: Dockerfile
     environment:
+      - NODE_ENV=production
       - VITE_WS_URL=wss://simulation.aaryareddy.com/ws/simulation
     restart: unless-stopped
     networks:
