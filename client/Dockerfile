@@ -13,20 +13,26 @@ RUN bun install --frozen-lockfile
 # Copy source files
 COPY client/ .
 
-# Build the application
+# Build the application with the correct base URL for the /simulation path
+ENV VITE_BASE_URL=/simulation
 RUN bun run build
 
-# Use nginx for serving static files
+# Use a lightweight nginx image for serving static files
 FROM nginx:alpine
 
-# Copy nginx configuration from the nginx directory
-COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
+# Copy only the built files
+COPY --from=builder /app/dist /usr/share/nginx/html/simulation
 
-# Copy built files from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Use a minimal nginx configuration
+RUN echo 'server { \
+    listen 80; \
+    location /simulation { \
+        alias /usr/share/nginx/html/simulation; \
+        try_files $uri $uri/ /simulation/index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
 
 # Expose port 80
 EXPOSE 80
 
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]

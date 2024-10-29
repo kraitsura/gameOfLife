@@ -6,12 +6,12 @@ import IntroPage from './pages/IntroPage';
 
 function App() {
   return (
-    <Router>
+    <Router basename="/simulation">
       <div className="h-screen bg-black text-white font-sans overflow-hidden">
         <main className="h-full">
-        <Routes>
-          <Route path="/" element={<IntroPage />} />
-          <Route path="/simulation" element={<SimulationController websocketUrl="ws://localhost:8000/ws/simulation" />} />
+          <Routes>
+            <Route path="/" element={<IntroPage />} />
+            <Route path="/simulation" element={<SimulationController websocketUrl={import.meta.env.VITE_WS_URL} />} />
           </Routes>
         </main>
       </div>
