@@ -5,14 +5,11 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
-    environment:
-      - NODE_ENV=production
-      - VITE_WS_URL=wss://simulation.aaryareddy.com/ws/simulation
+      args:
+        - VITE_WS_URL=ws://simulation.aaryareddy.com/ws/simulation
     restart: unless-stopped
     networks:
       - app_network
-    depends_on:
-      - backend
 
   backend:
     build:
@@ -20,12 +17,13 @@ services:
       dockerfile: Dockerfile
     environment:
       - MAX_WORKERS=4
-      - CORS_ORIGINS=["https://simulation.aaryareddy.com"]
-      - HOST=0.0.0.0
-      - PORT=8000
+      - CORS_ORIGINS=["http://localhost", "https://simulation.aaryareddy.com"]
     restart: unless-stopped
     networks:
       - app_network
+    # Remove direct port exposure if present
+    # ports:
+    #   - "8000:8000"
 
   nginx:
     build:
