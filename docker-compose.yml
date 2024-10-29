@@ -11,6 +11,7 @@ services:
       - ./nginx/ssl:/etc/nginx/ssl
       - ./certbot/www:/var/www/certbot
       - ./certbot/conf:/etc/letsencrypt
+      - frontend_build:/usr/share/nginx/html/simulation
     depends_on:
       frontend:
         condition: service_healthy
@@ -36,14 +37,14 @@ services:
       - app-network
     environment:
       - NODE_ENV=production
+      - VITE_API_URL=http://backend:8000
     volumes:
-      - ./client:/app
-      - /app/node_modules
+      - frontend_build:/app/dist
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "bun --version > /dev/null && wget --spider -q http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "bun --version > /dev/null && test -d /app/dist || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -57,6 +58,7 @@ services:
       - app-network
     environment:
       - NODE_ENV=production
+      - CORS_ORIGINS=http://frontend:3000,http://localhost
     volumes:
       - ./server:/app
       - /app/venv
@@ -70,3 +72,6 @@ services:
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  frontend_build:
