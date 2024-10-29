@@ -1,20 +1,19 @@
-# Build stage
+# Stage 1: Build the application
 FROM oven/bun:1.0.35 as builder
-
 WORKDIR /app
-
 COPY package.json ./
 COPY bun.lockb* ./
-
 RUN bun install
-
 COPY . .
-
 RUN bun run build
 
-# Final stage
-FROM nginx:alpine
+# Stage 2: Serve the built application
+FROM httpd:alpine
 
-COPY --from=builder /app/dist /usr/share/nginx/html/simulation
+# Copy the built files from builder stage to Apache's default public directory
+COPY --from=builder /app/dist/ /usr/local/apache2/htdocs/simulation/
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Apache port
+EXPOSE 80
+
+# Apache runs by default, no need for explicit CMD

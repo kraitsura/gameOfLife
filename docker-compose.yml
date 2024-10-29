@@ -1,31 +1,55 @@
+version: '3.8'
+
 services:
   frontend:
     build:
       context: ./client
       dockerfile: Dockerfile
-    environment:
-      - VITE_WS_URL=wss://simulation.aaryareddy.com/simulation/ws/simulation
-    depends_on:
-      - backend
+      args:
+        - VITE_WS_URL=wss://simulation.aaryareddy.com/simulation/ws/simulation
+    restart: unless-stopped
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/simulation"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   backend:
     build:
       context: ./server
       dockerfile: Dockerfile
-    expose:
-      - 8000
     environment:
       - MAX_WORKERS=4
+      - CORS_ORIGINS=["https://simulation.aaryareddy.com"]
     restart: unless-stopped
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   nginx:
-    image: nginx:alpine
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
     ports:
       - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
     depends_on:
       - frontend
       - backend
     restart: unless-stopped
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  app_network:
+    driver: bridge
