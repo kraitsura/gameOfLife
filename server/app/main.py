@@ -1,6 +1,7 @@
 # server/app/main.py
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import json
 import asyncio
 from typing import Set, Dict
@@ -154,9 +155,37 @@ async def start_broadcast():
 # Add this new endpoint
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "healthy"
-    }
+    try:
+        # Check if simulation is initialized
+        if not simulation:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "status": "unhealthy",
+                    "message": "Simulation not initialized"
+                }
+            )
+        
+        # Get basic simulation stats
+        state = simulation.get_state()
+        
+        return {
+            "status": "healthy",
+            "simulation": {
+                "active": simulation.is_running(),
+                "species_count": len(state["species"]),
+                "total_particles": sum(len(species["particles"]) for species in state["species"]),
+            },
+            "websocket_connections": len(active_connections)
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "unhealthy",
+                "message": str(e)
+            }
+        )
 
 
 if __name__ == "__main__":
