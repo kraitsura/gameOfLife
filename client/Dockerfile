@@ -10,8 +10,8 @@ RUN bun run build
 # Stage 2: Serve the built application
 FROM nginx:alpine
 
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy the built files to nginx's default serving directory
 COPY --from=builder /app/dist/ /usr/share/nginx/html/
-
 # Apache port
 EXPOSE 80
