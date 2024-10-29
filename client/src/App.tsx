@@ -2,6 +2,7 @@
 import SimulationController from './components/SimulationController';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import IntroPage from './pages/IntroPage';
+import config from '@/config/env';
 
 function App() {
   return (
@@ -10,7 +11,7 @@ function App() {
         <main className="h-full">
           <Routes>
             <Route path="/" element={<IntroPage />} />
-            <Route path="/simulation" element={<SimulationController websocketUrl={import.meta.env.VITE_WS_URL} />} />
+            <Route path="/simulation" element={<SimulationController websocketUrl={`${config.wsUrl}`} />} />
           </Routes>
         </main>
       </div>

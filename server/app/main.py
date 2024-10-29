@@ -117,7 +117,7 @@ async def broadcast_state():
             print(f"Broadcast error: {e}")
         await asyncio.sleep(1/60)  # Match simulation tick rate of 60 FPS
 
-@app.websocket("/ws/simulation")
+@app.websocket("/simulation/ws/simulation")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     active_connections.add(websocket)

@@ -29,7 +29,7 @@ check_docker() {
 # Function to start development environment
 start_dev() {
     source ".env.development"
-    
+
     echo -e "${BLUE}Starting development environment...${NC}"
     
     # Build and start services
@@ -41,7 +41,7 @@ start_dev() {
     fi
     
     echo -e "${GREEN}Development environment is ready!${NC}"
-    echo -e "${GREEN}Frontend: ${VITE_API_URL}${NC}"
+    echo -e "${GREEN}Frontend: ${VITE_URL}${NC}"
     echo -e "${GREEN}Backend: http://localhost:${BACKEND_PORT}${NC}"
 }
 
