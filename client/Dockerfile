@@ -8,13 +8,10 @@ COPY . .
 RUN bun run build
 
 # Stage 2: Serve the built application
-FROM httpd:alpine
+FROM nginx:alpine
 
-# Remove default Apache files
-RUN rm -rf /usr/local/apache2/htdocs/*
-
-# Copy the built files directly to the root
-COPY --from=builder /app/dist/ /usr/local/apache2/htdocs/
+# Copy the built files to nginx's default serving directory
+COPY --from=builder /app/dist/ /usr/share/nginx/html/
 
 # Apache port
 EXPOSE 80
