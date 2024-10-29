@@ -155,20 +155,29 @@ async def start_broadcast():
 # Add this new endpoint
 @app.get("/health")
 async def health_check():
+    """Simple health check to verify the server is ready to accept connections"""
     try:
-        # Check if simulation is initialized
-        if not simulation:
-            return JSONResponse(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={
-                    "status": "unhealthy",
-                    "message": "Simulation not initialized"
-                }
-            )
-        
-        # Get basic simulation stats
+        return {
+            "status": "healthy",
+            "ready": True,
+            "message": "Server is ready to accept connections"
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "unhealthy",
+                "ready": False,
+                "message": str(e)
+            }
+        )
+
+# Optional: Add a separate endpoint for detailed simulation status
+@app.get("/status")
+async def simulation_status():
+    """Detailed status endpoint for monitoring the simulation"""
+    try:
         state = simulation.get_state()
-        
         return {
             "status": "healthy",
             "simulation": {
