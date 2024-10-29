@@ -1,6 +1,6 @@
 // client/src/components/SimulationRenderer.tsx
 import React, { useRef, useEffect } from 'react';
-import { SimulationState, RenderOptions, Particle, ParticleGroup } from '../types/simulation';
+import { SimulationState, RenderOptions, Particle } from '../types/simulation';
 
 interface SimulationRendererProps {
   state: SimulationState;
@@ -17,48 +17,122 @@ const SimulationRenderer: React.FC<SimulationRendererProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestIdRef = useRef<number>();
+  const stateRef = useRef(state);
+  const optionsRef = useRef(options);
+  
+  // Update refs when props change
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false }); 
     if (!ctx) return;
 
-    // Set canvas resolution
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    ctx.scale(dpr, dpr);
+    let frameCount = 0;
+    let lastTime = performance.now();
+    const targetFPS = 60;
+    const frameInterval = 1000 / targetFPS;
 
-    const render = () => {
-      // Clear canvas
+    const updateCanvasSize = () => {
+      const container = canvas.parentElement;
+      if (!container) return;
+
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+    const dpr = window.devicePixelRatio || 1;
+
+      // Only update canvas size if it actually changed
+      if (canvas.width !== containerWidth * dpr || canvas.height !== containerHeight * dpr) {
+        canvas.width = containerWidth * dpr;
+        canvas.height = containerHeight * dpr;
+        canvas.style.width = `${containerWidth}px`;
+        canvas.style.height = `${containerHeight}px`;
+
+        // Calculate and store transform matrix
+        const scaleX = containerWidth / width;
+        const scaleY = containerHeight / height;
+        const scale = Math.min(scaleX, scaleY);
+        const offsetX = (containerWidth - width * scale) / 2;
+        const offsetY = (containerHeight - height * scale) / 2;
+        
+        ctx.setTransform(
+          scale * dpr,
+          0,
+          0,
+          scale * dpr,
+          offsetX * dpr,
+          offsetY * dpr
+        );
+      }
+    };
+
+    // Throttled resize observer
+    let resizeTimeout: number;
+    const resizeObserver = new ResizeObserver(() => {
+      if (resizeTimeout) {
+        window.cancelAnimationFrame(resizeTimeout);
+      }
+      resizeTimeout = window.requestAnimationFrame(updateCanvasSize);
+    });
+
+    if (canvas.parentElement) {
+      resizeObserver.observe(canvas.parentElement);
+    }
+
+    updateCanvasSize();
+
+
+    const render = (currentTime: number) => {
+      if (!ctx || !canvas) return;
+
+      // Implement frame rate control
+      const elapsed = currentTime - lastTime;
+      if (elapsed < frameInterval) {
+        requestIdRef.current = requestAnimationFrame(render);
+        return;
+      }
+
+      // Update time tracking
+      lastTime = currentTime - (elapsed % frameInterval);
+      frameCount++;
+
+      // Clear canvas with solid black background
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, width, height);
 
-      // Draw grid if enabled
-      if (options.showGrid) {
-        drawGrid(ctx, width, height, options.gridSize);
+      const currentState = stateRef.current;
+      const currentOptions = optionsRef.current;
+
+      // Draw grid if enabled (with reduced opacity for performance)
+      if (currentOptions.showGrid && frameCount % 2 === 0) {
+        drawGrid(ctx, width, height, currentOptions.gridSize);
       }
 
-      // First draw plants (background layer)
-      for (const particle of state.particles.values()) {
+      // Batch similar drawing operations
+      // First draw all plants
+      for (const particle of currentState.particles.values()) {
         if (particle.rules.particleType === 'plant') {
-          drawPlant(ctx, particle, options);
+          drawPlant(ctx, particle, currentOptions);
         }
       }
 
-      // Draw particle groups if enabled
-      if (options.showGroups) {
-        drawGroups(ctx, state, options);
+      // Then draw all groups
+      if (currentOptions.showGroups) {
+        drawGroups(ctx, currentState, currentOptions);
       }
 
-      // Then draw creatures (foreground layer)
-      for (const particle of state.particles.values()) {
+      // Finally draw all creatures
+      for (const particle of currentState.particles.values()) {
         if (particle.rules.particleType === 'creature') {
-          drawParticle(ctx, particle, state, options);
+          drawParticle(ctx, particle, currentState, currentOptions);
         }
       }
 
@@ -66,21 +140,26 @@ const SimulationRenderer: React.FC<SimulationRendererProps> = ({
       requestIdRef.current = requestAnimationFrame(render);
     };
 
-    render();
+    requestIdRef.current = requestAnimationFrame(render);
 
     return () => {
+      resizeObserver.disconnect();
       if (requestIdRef.current) {
         cancelAnimationFrame(requestIdRef.current);
       }
+      if (resizeTimeout) {
+        cancelAnimationFrame(resizeTimeout);
+      }
     };
-  }, [state, options, width, height]);
+  }, []); // Empty dependency array since we're using refs
 
   return (
     <canvas
       ref={canvasRef}
       style={{
-        border: '1px solid #333',
-        backgroundColor: '#000'
+        width: '100%',
+        height: '100%',
+        display: 'block'
       }}
     />
   );
