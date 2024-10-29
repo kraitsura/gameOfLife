@@ -4,25 +4,24 @@ FROM nginx:alpine
 # Install required packages
 RUN apk add --no-cache openssl curl
 
-# Create directory for SSL certificates
-RUN mkdir -p /etc/nginx/ssl
+# Create SSL directory
+RUN mkdir -p /etc/nginx/ssl && \
+    chmod 700 /etc/nginx/ssl
 
-# Create directory for certbot challenges
-RUN mkdir -p /var/www/certbot
+# Generate self-signed SSL certificate
+RUN openssl req -x509 -nodes -days 365 \
+    -subj "/CN=aaryareddy.com" \
+    -addext "subjectAltName=DNS:aaryareddy.com" \
+    -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/privkey.pem \
+    -out /etc/nginx/ssl/fullchain.pem && \
+    chmod 600 /etc/nginx/ssl/privkey.pem /etc/nginx/ssl/fullchain.pem
 
 # Remove default nginx config
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Copy custom nginx configuration
 COPY nginx/conf.d/app.conf /etc/nginx/conf.d/
-
-# Generate self-signed SSL certificate for initial setup
-RUN openssl req -x509 -nodes -days 365 \
-    -subj "/C=US/ST=CA/O=MyOrg/CN=aaryareddy.com" \
-    -addext "subjectAltName=DNS:aaryareddy.com" \
-    -newkey rsa:2048 \
-    -keyout /etc/nginx/ssl/privkey.pem \
-    -out /etc/nginx/ssl/fullchain.pem
 
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

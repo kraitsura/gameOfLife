@@ -8,10 +8,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/ssl:/etc/nginx/ssl
-      - ./certbot/www:/var/www/certbot
-      - ./certbot/conf:/etc/letsencrypt
-      - frontend_build:/usr/share/nginx/html/simulation
+      - ./nginx/proxy.conf:/etc/nginx/proxy.conf
     depends_on:
       frontend:
         condition: service_healthy
@@ -37,14 +34,14 @@ services:
       - app-network
     environment:
       - NODE_ENV=production
-      - VITE_API_URL=http://backend:8000
-    volumes:
-      - frontend_build:/app/dist
+      - VITE_API_URL=/simulation/api
+      - VITE_WS_URL=/simulation/ws
+      - VITE_BASE_URL=/simulation
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "bun --version > /dev/null && test -d /app/dist || exit 1"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -58,9 +55,13 @@ services:
       - app-network
     environment:
       - NODE_ENV=production
-      - CORS_ORIGINS=http://frontend:3000,http://localhost
+      - CORS_ORIGINS=https://aaryareddy.com,http://localhost:3000,http://localhost:8000,http://localhost
+      - BACKEND_HOST=0.0.0.0
+      - BACKEND_PORT=8000
+      - DEBUG=false
+      - MAX_WORKERS=4
     volumes:
-      - ./server:/app
+      - ./server:/app/server
       - /app/venv
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "8000"]
@@ -72,6 +73,5 @@ services:
 networks:
   app-network:
     driver: bridge
+    internal: true
 
-volumes:
-  frontend_build:
