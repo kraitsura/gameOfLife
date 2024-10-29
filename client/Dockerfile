@@ -10,10 +10,14 @@ RUN bun run build
 # Stage 2: Serve the built application
 FROM httpd:alpine
 
-# Copy the built files from builder stage to Apache's default public directory
+# Remove default Apache files
+RUN rm -rf /usr/local/apache2/htdocs/*
+
+# Create the simulation directory
+RUN mkdir -p /usr/local/apache2/htdocs/simulation
+
+# Copy the built files into the simulation directory
 COPY --from=builder /app/dist/ /usr/local/apache2/htdocs/simulation/
 
 # Apache port
 EXPOSE 80
-
-# Apache runs by default, no need for explicit CMD

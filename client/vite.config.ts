@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/simulation/ws/simulation': {
+      '/ws/simulation': {
         target: 'ws://localhost:8000',
         ws: true,
         changeOrigin: true
@@ -19,5 +19,4 @@ export default defineConfig({
       { find: '@', replacement: path.resolve(__dirname, 'src') }
     ]
   },
-  base: '/simulation/'
 })

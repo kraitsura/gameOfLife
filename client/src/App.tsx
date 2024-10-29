@@ -6,7 +6,7 @@ import config from '@/config/env';
 
 function App() {
   return (
-    <Router basename="/simulation">
+    <Router>
       <div className="h-screen bg-black text-white font-sans overflow-hidden">
         <main className="h-full">
           <Routes>
