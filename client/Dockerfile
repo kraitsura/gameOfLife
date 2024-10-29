@@ -13,11 +13,8 @@ FROM httpd:alpine
 # Remove default Apache files
 RUN rm -rf /usr/local/apache2/htdocs/*
 
-# Create the simulation directory
-RUN mkdir -p /usr/local/apache2/htdocs/simulation
-
-# Copy the built files into the simulation directory
-COPY --from=builder /app/dist/ /usr/local/apache2/htdocs/simulation/
+# Copy the built files directly to the root
+COPY --from=builder /app/dist/ /usr/local/apache2/htdocs/
 
 # Apache port
 EXPOSE 80

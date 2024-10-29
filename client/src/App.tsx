@@ -11,7 +11,7 @@ function App() {
         <main className="h-full">
           <Routes>
             <Route path="/" element={<IntroPage />} />
-            <Route path="/simulation" element={<SimulationController websocketUrl={`${config.wsUrl}`} />} />
+            <Route path="/sim" element={<SimulationController websocketUrl={`${config.wsUrl}`} />} />
           </Routes>
         </main>
       </div>

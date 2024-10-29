@@ -6,12 +6,12 @@ services:
       context: ./client
       dockerfile: Dockerfile
       args:
-        - VITE_WS_URL=wss://simulation.aaryareddy.com/simulation/ws/simulation
+        - VITE_WS_URL=wss://simulation.aaryareddy.com/ws/simulation
     restart: unless-stopped
     networks:
       - app_network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/simulation"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80"]
       interval: 30s
       timeout: 10s
       retries: 3

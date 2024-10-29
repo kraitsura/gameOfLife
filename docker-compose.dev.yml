@@ -1,31 +1,63 @@
+version: '3.8'
+
 services:
   frontend:
+    container_name: ${APP_NAME:-simulation}-frontend-dev
     build:
       context: ./client
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
     environment:
-      - VITE_WS_URL=wss://aaryareddy.com/simulation/ws/simulation
+      - NODE_ENV=development
+      - VITE_WS_URL=${VITE_WS_URL}
+    networks:
+      - dev_network
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bun --version > /dev/null && wget --spider -q http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   backend:
+    container_name: ${APP_NAME:-simulation}-backend-dev
     build:
       context: ./server
-      dockerfile: Dockerfile
-    expose:
-      - 8000
-    environment:
-      - MAX_WORKERS=4
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
+      dockerfile: Dockerfile.dev
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-    depends_on:
-      - frontend
-      - backend
-    restart: unless-stopped
+      - ./server:/app
+      - backend_data:/app/data
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - DATABASE_URL=${DATABASE_URL}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - BACKEND_HOST=0.0.0.0
+      - BACKEND_PORT=8000
+      - WS_HEARTBEAT_INTERVAL=${WS_HEARTBEAT_INTERVAL:-30}
+    networks:
+      - dev_network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  backend_data:
+    name: ${APP_NAME:-simulation}_backend_data_dev
+
+networks:
+  dev_network:
+    name: ${APP_NAME:-simulation}_dev_network
+    driver: bridge
