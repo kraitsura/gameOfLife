@@ -126,13 +126,13 @@ const SimulationRenderer: React.FC<SimulationRendererProps> = ({
 
       // Then draw all groups
       if (currentOptions.showGroups) {
-        drawGroups(ctx, currentState, currentOptions);
+        drawGroups(ctx, currentState);
       }
 
       // Finally draw all creatures
       for (const particle of currentState.particles.values()) {
         if (particle.rules.particleType === 'creature') {
-          drawParticle(ctx, particle, currentState, currentOptions);
+          drawParticle(ctx, particle, currentOptions);
         }
       }
 
@@ -190,8 +190,7 @@ const drawGrid = (
 
 const drawGroups = (
   ctx: CanvasRenderingContext2D,
-  state: SimulationState,
-  options: RenderOptions
+  state: SimulationState
 ) => {
   for (const group of state.groups.values()) {
     const members = Array.from(group.memberIds)
@@ -221,7 +220,6 @@ const drawGroups = (
 const drawParticle = (
   ctx: CanvasRenderingContext2D,
   particle: Particle,
-  state: SimulationState,
   options: RenderOptions
 ) => {
   const { position, attributes, color } = particle;
@@ -330,7 +328,6 @@ const drawPlant = (
   ctx.fillStyle = color;
 
   // Draw plants as squares with slightly rounded corners
-  const size = radius * 2;
   const cornerRadius = radius * 0.2;
 
   ctx.beginPath();

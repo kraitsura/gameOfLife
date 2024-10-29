@@ -1,4 +1,3 @@
-import React from 'react';
 import { Diet, ReproductionStyle, Species } from '../types/simulation';
 import { AddSpeciesDialog } from './AddSpeciesDialog';
 

@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Species, Diet, ReproductionStyle } from '../types/simulation';
+import { Diet, ReproductionStyle } from '../types/simulation';
 
 interface AddSpeciesDialogProps {
   onAddSpecies: (

@@ -1,5 +1,4 @@
 // client/src/App.tsx
-import React from 'react';
 import SimulationController from './components/SimulationController';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import IntroPage from './pages/IntroPage';

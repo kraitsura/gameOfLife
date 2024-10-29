@@ -1,6 +1,6 @@
 // client/src/components/SimulationController.tsx
-import React, { useState, useEffect, useRef } from 'react';
-import { SimulationState, RenderOptions, Species, Diet, ReproductionStyle, ParticleRules, ParticleType } from '../types/simulation';
+import { useState, useEffect, useRef } from 'react';
+import { SimulationState, RenderOptions, Diet, ReproductionStyle, ParticleRules } from '../types/simulation';
 import SimulationRenderer from './SimulationRenderer';
 import SpeciesPanel from './SpeciesPanel';
 import StatisticsPanel from './StatisticsPanel';

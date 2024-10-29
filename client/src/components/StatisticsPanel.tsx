@@ -1,5 +1,4 @@
 // client/src/components/StatisticsPanel.tsx
-import React from 'react';
 import { SimulationState } from '../types/simulation';
 
 interface StatisticsPanelProps {
