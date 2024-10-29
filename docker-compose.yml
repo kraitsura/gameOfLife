@@ -1,0 +1,40 @@
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+
+  backend:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./server:/app
+      - /app/venv
+
+networks:
+  app-network:
+    driver: bridge

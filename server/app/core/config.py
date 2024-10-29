@@ -1,8 +1,26 @@
 from typing import List
 from pydantic_settings import BaseSettings
+from functools import lru_cache
+import os
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Circular Life Simulation"
+
+    # Application
+    APP_NAME: str
+    ENVIRONMENT: str
+    
+    # Server
+    BACKEND_HOST: str
+    BACKEND_PORT: int
+    CORS_ORIGINS: str
+    DEBUG: bool
+    
+    # Database
+    DATABASE_URL: str
+    
+    # WebSocket
+    WS_HEARTBEAT_INTERVAL: int
     
     # CORS settings
     ALLOWED_ORIGINS: List[str] = [
@@ -43,6 +61,10 @@ class Settings(BaseSettings):
 
     class Config:
         case_sensitive = True
-        env_file = ".env"
+        env_file = f".env.{os.getenv('ENVIRONMENT', 'development')}"
 
 settings = Settings()
+
+@lru_cache()
+def get_settings():
+    return Settings()

@@ -106,14 +106,14 @@ async def startup_event():
 # Broadcast state to all clients
 async def broadcast_state():
     while True:
-        if active_connections:  # Only broadcast if there are connections
-            try:
-                state = simulation.get_state()
+        try:
+            state = simulation.get_state()
+            if active_connections:  # Only send if there are connections
                 await asyncio.gather(
                     *[connection.send_json(state) for connection in active_connections]
                 )
-            except Exception as e:
-                print(f"Broadcast error: {e}")
+        except Exception as e:
+            print(f"Broadcast error: {e}")
         await asyncio.sleep(1/60)  # Match simulation tick rate of 60 FPS
 
 @app.websocket("/ws/simulation")
@@ -150,6 +150,14 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.on_event("startup")
 async def start_broadcast():
     asyncio.create_task(broadcast_state())
+
+# Add this new endpoint
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy"
+    }
+
 
 if __name__ == "__main__":
     import uvicorn

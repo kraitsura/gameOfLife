@@ -5,11 +5,11 @@ import SimulationRenderer from './SimulationRenderer';
 import SpeciesPanel from './SpeciesPanel';
 import StatisticsPanel from './StatisticsPanel';
 
-interface SimulationControllerProps {
+type SimulationControllerProps = {
     websocketUrl: string;
-}
+};
 
-const SimulationController: React.FC<SimulationControllerProps> = ({ websocketUrl }) => {
+export default function SimulationController({ websocketUrl }: SimulationControllerProps) {
     const [state, setState] = useState<SimulationState>({
         particles: new Map(),
         species: new Map(),
@@ -159,95 +159,81 @@ const SimulationController: React.FC<SimulationControllerProps> = ({ websocketUr
     };
 
     return (
-        <div className="flex flex-col gap-4">
-            <div className="flex gap-4">
-                {/* Main Simulation View */}
-                <div className="flex-1">
-                    <div className="relative">
-                        <SimulationRenderer
-                            state={state}
-                            options={options}
-                            width={state.worldWidth}
-                            height={state.worldHeight}
-                        />
+        <div className="flex items-center justify-center min-h-screen p-8">
+            <div className="flex flex-col gap-8 w-full max-w-7xl">
+                <div className="flex gap-8 h-[600px]">
+                    {/* Main Simulation View */}
+                    <div className="flex-1 bg-gray-900 rounded-lg shadow-xl overflow-hidden w-full h-full">
+                        <div className="relative w-full h-full">
+                            <SimulationRenderer
+                                state={state}
+                                options={options}
+                                width={state.worldWidth}
+                                height={state.worldHeight}
+                            />
 
-                        {/* Status Indicator */}
-                        <div className="absolute top-2 left-2 flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                            <span className="text-white text-sm">
-                                {isConnected ? 'Connected' : 'Disconnected'}
-                            </span>
-                        </div>
+                            {/* New overlay layer */}
+                            <div className="absolute inset-0 z-20 pointer-events-none">
+                                {/* Status Indicator - updated classes */}
+                                <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 backdrop-blur-sm p-2 rounded pointer-events-auto">
+                                    <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                                    <span className="text-sm">
+                                        {isConnected ? 'Connected' : 'Disconnected'}
+                                    </span>
+                                </div>
 
-                        {/* Stats Overlay */}
-                        <div className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded">
-                            <div>Tick: {state.tickCount}</div>
-                            <div>Particles: {state.particles.size}</div>
-                            <div>Species: {state.species.size}</div>
-                            <div>Groups: {state.groups.size}</div>
+                                {/* Stats Overlay - updated classes */}
+                                <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm p-2 rounded text-sm pointer-events-auto">
+                                    <div>Tick: {state.tickCount}</div>
+                                    <div>Particles: {state.particles.size}</div>
+                                    <div>Species: {state.species.size}</div>
+                                    <div>Groups: {state.groups.size}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Controls */}
-                    <div className="flex gap-4 p-4 bg-gray-800 rounded mt-4">
+                    {/* Side Panel */}
+                    <div className="w-96 bg-gray-900 p-6 rounded-lg shadow-xl">
+                        <SpeciesPanel
+                            species={Array.from(state.species.values())}
+                            onAddSpecies={handleAddSpecies}
+                            selectedSpecies={selectedSpecies}
+                            onSelectSpecies={setSelectedSpecies}
+                        />
+                        <StatisticsPanel state={state} selectedSpecies={selectedSpecies} />
+                    </div>
+                </div>
+
+                {/* Controls */}
+                <div className="bg-gray-900 p-6 rounded-lg shadow-xl">
+                    <div className="flex flex-wrap gap-6 items-center">
                         <button
                             onClick={handleTogglePause}
-                            className={`px-4 py-2 rounded ${isPaused ? 'bg-green-500' : 'bg-red-500'
-                                } text-white`}
+                            className={`px-4 py-2 rounded-full ${isPaused ? 'bg-green-600' : 'bg-red-600'} text-white transition-colors`}
                             disabled={!isConnected}
                         >
                             {isPaused ? 'Resume' : 'Pause'}
                         </button>
 
-                        <div className="flex gap-4">
-                            <label className="flex items-center gap-2 text-white">
-                                <input
-                                    type="checkbox"
-                                    checked={options.showGrid}
-                                    onChange={e => handleOptionChange('showGrid', e.target.checked)}
-                                />
-                                Show Grid
-                            </label>
-
-                            <label className="flex items-center gap-2 text-white">
-                                <input
-                                    type="checkbox"
-                                    checked={options.showVision}
-                                    onChange={e => handleOptionChange('showVision', e.target.checked)}
-                                />
-                                Show Vision Range
-                            </label>
-
-                            <label className="flex items-center gap-2 text-white">
-                                <input
-                                    type="checkbox"
-                                    checked={options.showEnergy}
-                                    onChange={e => handleOptionChange('showEnergy', e.target.checked)}
-                                />
-                                Show Energy/Hunger
-                            </label>
-
-                            <label className="flex items-center gap-2 text-white">
-                                <input
-                                    type="checkbox"
-                                    checked={options.showGroups}
-                                    onChange={e => handleOptionChange('showGroups', e.target.checked)}
-                                />
-                                Show Groups
-                            </label>
-
-                            <label className="flex items-center gap-2 text-white">
-                                <input
-                                    type="checkbox"
-                                    checked={options.showDiet}
-                                    onChange={e => handleOptionChange('showDiet', e.target.checked)}
-                                />
-                                Show Diet
-                            </label>
+                        <div className="flex flex-wrap gap-4">
+                            {Object.entries(options).map(([key, value]) => (
+                                key !== 'particleScale' && key !== 'gridSize' && (
+                                    <label key={key} className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={value as boolean}
+                                            onChange={e => handleOptionChange(key as keyof RenderOptions, e.target.checked)}
+                                            className="form-checkbox text-blue-600"
+                                        />
+                                        <span className="text-sm">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                    </label>
+                                )
+                            ))}
                         </div>
 
-                        <div className="flex items-center gap-2 text-white">
-                            <label>Particle Scale:</label>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm">Particle Scale:</span>
                             <input
                                 type="range"
                                 min="0.5"
@@ -260,20 +246,7 @@ const SimulationController: React.FC<SimulationControllerProps> = ({ websocketUr
                         </div>
                     </div>
                 </div>
-
-                {/* Side Panel */}
-                <div className="w-80 bg-gray-800 p-4 rounded">
-                    <SpeciesPanel
-                        species={Array.from(state.species.values())}
-                        onAddSpecies={handleAddSpecies}
-                        selectedSpecies={selectedSpecies}
-                        onSelectSpecies={setSelectedSpecies}
-                    />
-                    <StatisticsPanel state={state} selectedSpecies={selectedSpecies} />
-                </div>
             </div>
         </div>
     );
-};
-
-export default SimulationController;
+}
