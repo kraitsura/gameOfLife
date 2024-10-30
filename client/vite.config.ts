@@ -8,7 +8,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/ws/simulation': {
-        target: 'ws://localhost',
+        target: 'ws://localhost:8000',
         ws: true,
         changeOrigin: true
       }

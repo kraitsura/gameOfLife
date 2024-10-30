@@ -4,8 +4,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import IntroPage from './pages/IntroPage';
 
 function App() {
-  const wsUrl = 'wss://simulation.aaryareddy.com/ws/simulation'
-
+  const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/simulation`;
 
   return (
     <Router>
