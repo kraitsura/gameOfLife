@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   frontend:
     build:
@@ -6,9 +8,15 @@ services:
       args:
         - NODE_ENV=production
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
       backend:
-        condition: service_healthy  
+        condition: service_healthy
     networks:
       - app_network
 
@@ -18,13 +26,21 @@ services:
       dockerfile: Dockerfile
     environment:
       - MAX_WORKERS=4
-      - CORS_ORIGINS=["http://localhost", "https://simulation.aaryareddy.com", "http://simulation.aaryareddy.com", "wss://simulation.aaryareddy.com", "ws://simulation.aaryareddy.com"]
+      - CORS_ORIGINS=["http://localhost", "https://simulation.aaryareddy.com", "http://simulation.aaryareddy.com"]
+      - UVICORN_WORKERS=4
+      - UVICORN_WS_PING_INTERVAL=20
+      - UVICORN_WS_PING_TIMEOUT=20
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '2G'
     restart: unless-stopped
     networks:
       - app_network
@@ -35,9 +51,16 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80"
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - app_network
@@ -45,3 +68,7 @@ services:
 networks:
   app_network:
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16

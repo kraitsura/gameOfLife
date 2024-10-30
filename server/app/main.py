@@ -6,6 +6,7 @@ import json
 import asyncio
 from typing import Set, Dict
 import os
+import time
 
 websocket_server_ready = False
 
@@ -18,6 +19,15 @@ from app.models.simulation import (
 )
 
 app = FastAPI()
+
+# Move websocket_server_ready after app initialization
+websocket_server_ready = False
+
+# Add this to set ready state during startup
+@app.on_event("startup")
+async def set_websocket_ready():
+    global websocket_server_ready
+    websocket_server_ready = True
 
 # Update CORS settings in main.py
 CORS_ORIGINS = json.loads(os.getenv('CORS_ORIGINS', '["http://localhost", "https://simulation.aaryareddy.com", "http://simulation.aaryareddy.com"]'))
@@ -126,30 +136,43 @@ async def broadcast_state():
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     active_connections.add(websocket)
+    
+    heartbeat_interval = 30  # seconds
+    last_heartbeat = time.time()
 
     try:
-        websocket_server_ready = True
         # Send initial state
         await websocket.send_json(simulation.get_state())
         
         # Handle incoming messages
         while True:
-            data = await websocket.receive_json()
+            # Handle heartbeat
+            if time.time() - last_heartbeat > heartbeat_interval:
+                await websocket.send_json({"type": "ping"})
+                last_heartbeat = time.time()
             
-            if data["type"] == "start":
-                await simulation.start()
-            elif data["type"] == "pause":
-                await simulation.pause()
-            elif data["type"] == "add_species":
-                simulation.add_species(
-                    name=data["name"],
-                    color=data["color"],
-                    rules=ParticleRules(**data["rules"]),
-                    diet=Diet(data["diet"]),
-                    reproductionStyle=ReproductionStyle(data["reproductionStyle"]),
-                    initial_count=data.get("initialCount", 10)
-                )
-
+            # Use receive_json with timeout to prevent blocking
+            try:
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=1.0)
+                
+                if data["type"] == "pong":
+                    last_heartbeat = time.time()
+                elif data["type"] == "start":
+                    await simulation.start()
+                elif data["type"] == "pause":
+                    await simulation.pause()
+                elif data["type"] == "add_species":
+                    simulation.add_species(
+                        name=data["name"],
+                        color=data["color"],
+                        rules=ParticleRules(**data["rules"]),
+                        diet=Diet(data["diet"]),
+                        reproductionStyle=ReproductionStyle(data["reproductionStyle"]),
+                        initial_count=data.get("initialCount", 10)
+                    )
+            except asyncio.TimeoutError:
+                continue  # No message received, continue to next iteration
+                
     except WebSocketDisconnect:
         active_connections.remove(websocket)
 
@@ -161,11 +184,21 @@ async def start_broadcast():
 # Add this new endpoint
 @app.get("/health")
 async def health_check():
-    """Simple health check to verify the server is ready to accept connections"""
+    """Health check to verify the server is ready"""
     try:
+        if not websocket_server_ready:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "status": "unhealthy",
+                    "ready": False,
+                    "message": "WebSocket server not ready"
+                }
+            )
+        
         return {
             "status": "healthy",
-            "ready": websocket_server_ready,
+            "ready": True,
             "message": "Server is ready to accept connections"
         }
     except Exception as e:
@@ -173,7 +206,7 @@ async def health_check():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
                 "status": "unhealthy",
-                "ready": websocket_server_ready,
+                "ready": False,
                 "message": str(e)
             }
         )

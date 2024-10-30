@@ -4,7 +4,9 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import IntroPage from './pages/IntroPage';
 
 function App() {
-  const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/simulation`;
+  const wsUrl = import.meta.env.DEV 
+    ? 'ws://localhost:8000/ws/simulation'  // Development
+    : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/simulation`; // Production
 
   return (
     <Router>
