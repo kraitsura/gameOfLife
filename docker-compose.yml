@@ -30,15 +30,9 @@ services:
       - UVICORN_WS_PING_TIMEOUT=20
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
+      interval: 25s
+      timeout: 10s
       retries: 3
-      start_period: 20s
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: '2G'
     restart: unless-stopped
     networks:
       - app_network
