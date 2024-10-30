@@ -181,35 +181,29 @@ async def websocket_endpoint(websocket: WebSocket):
 async def start_broadcast():
     asyncio.create_task(broadcast_state())
 
-# Add this new endpoint
 @app.get("/health")
 async def health_check():
-    """Health check to verify the server is ready"""
     try:
-        if not websocket_server_ready:
-            return JSONResponse(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={
-                    "status": "unhealthy",
-                    "ready": False,
-                    "message": "WebSocket server not ready"
-                }
-            )
-        
-        return {
-            "status": "healthy",
-            "ready": True,
-            "message": "Server is ready to accept connections"
-        }
+        # Basic application health check
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"status": "healthy"}
+        )
     except Exception as e:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={
-                "status": "unhealthy",
-                "ready": False,
-                "message": str(e)
-            }
+            content={"status": "unhealthy", "message": str(e)}
         )
+
+@app.websocket("/ws/health")
+async def websocket_health_check(websocket: WebSocket):
+    try:
+        await websocket.accept()
+        await websocket.send_text("healthy")
+        await websocket.close()
+        return True
+    except Exception:
+        return False
 
 # Optional: Add a separate endpoint for detailed simulation status
 @app.get("/status")
