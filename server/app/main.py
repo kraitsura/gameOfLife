@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 import json
 import asyncio
 from typing import Set, Dict
+import os
 
 from app.simulation.simulation_manager import SimulationManager
 from app.models.simulation import (
@@ -16,10 +17,12 @@ from app.models.simulation import (
 
 app = FastAPI()
 
-# CORS middleware
+# Update CORS settings in main.py
+CORS_ORIGINS = json.loads(os.getenv('CORS_ORIGINS', '["http://localhost", "https://simulation.aaryareddy.com", "http://simulation.aaryareddy.com"]'))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend URL
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

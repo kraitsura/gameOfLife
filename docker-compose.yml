@@ -17,13 +17,10 @@ services:
       dockerfile: Dockerfile
     environment:
       - MAX_WORKERS=4
-      - CORS_ORIGINS=["http://localhost", "https://simulation.aaryareddy.com"]
+      - CORS_ORIGINS=["http://localhost", "https://simulation.aaryareddy.com", "http://simulation.aaryareddy.com"]
     restart: unless-stopped
     networks:
       - app_network
-    # Remove direct port exposure if present
-    # ports:
-    #   - "8000:8000"
 
   nginx:
     build:
