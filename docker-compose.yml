@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build:
@@ -17,7 +15,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - MAX_WORKERS=4
-      - CORS_ORIGINS=["http://localhost", "https://simulation.aaryareddy.com", "http://simulation.aaryareddy.com"]
+      - CORS_ORIGINS=["http://localhost", "https://simulation.aaryareddy.com", "http://simulation.aaryareddy.com", "ws://localhost", "ws://simulation.aaryareddy.com"]
     restart: unless-stopped
     networks:
       - app_network
