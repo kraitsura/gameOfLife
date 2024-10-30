@@ -6,6 +6,9 @@ services:
       args:
         - NODE_ENV=production
     restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy  
     networks:
       - app_network
 
@@ -15,7 +18,13 @@ services:
       dockerfile: Dockerfile
     environment:
       - MAX_WORKERS=4
-      - CORS_ORIGINS=["http://localhost", "https://simulation.aaryareddy.com", "http://simulation.aaryareddy.com", "ws://localhost", "ws://simulation.aaryareddy.com"]
+      - CORS_ORIGINS=["http://localhost", "https://simulation.aaryareddy.com", "http://simulation.aaryareddy.com", "wss://simulation.aaryareddy.com", "ws://simulation.aaryareddy.com"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped
     networks:
       - app_network
