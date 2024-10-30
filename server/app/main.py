@@ -128,9 +128,10 @@ async def websocket_endpoint(websocket: WebSocket):
     active_connections.add(websocket)
 
     try:
+        websocket_server_ready = True
         # Send initial state
         await websocket.send_json(simulation.get_state())
-        websocket_server_ready = True
+        
         # Handle incoming messages
         while True:
             data = await websocket.receive_json()
