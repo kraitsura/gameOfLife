@@ -7,6 +7,8 @@ import asyncio
 from typing import Set, Dict
 import os
 
+websocket_server_ready = False
+
 from app.simulation.simulation_manager import SimulationManager
 from app.models.simulation import (
     ParticleRules, 
@@ -128,7 +130,7 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         # Send initial state
         await websocket.send_json(simulation.get_state())
-
+        websocket_server_ready = True
         # Handle incoming messages
         while True:
             data = await websocket.receive_json()
@@ -162,7 +164,7 @@ async def health_check():
     try:
         return {
             "status": "healthy",
-            "ready": True,
+            "ready": websocket_server_ready,
             "message": "Server is ready to accept connections"
         }
     except Exception as e:
@@ -170,7 +172,7 @@ async def health_check():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
                 "status": "unhealthy",
-                "ready": False,
+                "ready": websocket_server_ready,
                 "message": str(e)
             }
         )
