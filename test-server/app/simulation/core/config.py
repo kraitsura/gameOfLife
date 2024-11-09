@@ -1,0 +1,21 @@
+from typing import Final
+
+WORLD_CONFIG: Final = {
+    "WIDTH": 800,
+    "HEIGHT": 600,
+    "TICK_RATE": 1/60,
+    "PLANT_SPAWN_RATE": 0.1
+}
+
+PHYSICS_CONFIG: Final = {
+    "MAX_VELOCITY": 10.0,
+    "FRICTION": 0.1,
+    "COLLISION_DISTANCE": 5.0
+}
+
+VITALITY_CONFIG: Final = {
+    "BASE_ENERGY": 100.0,
+    "ENERGY_DECAY_RATE": 0.1,
+    "HUNGER_RATE": 0.05,
+    "REPRODUCTION_THRESHOLD": 90.0
+}
