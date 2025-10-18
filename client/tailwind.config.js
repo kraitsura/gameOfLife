@@ -53,6 +53,43 @@ export default {
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))'
         },
+        // Gotham Blueprint Colors
+        gotham: {
+          blueprint: {
+            50: '#E1F0F7',
+            100: '#C4E1EF',
+            200: '#8AC3DF',
+            300: '#4FA5CF',
+            400: '#2B95D6',
+            500: '#215DB0',
+            600: '#1F4B99',
+            700: '#1A3A75',
+            800: '#14294A',
+            900: '#0E5A8A',
+          },
+          dark: {
+            100: '#394B59',
+            200: '#30404D',
+            300: '#252A31',
+            400: '#1C2127',
+            500: '#0E1317',
+          },
+          gray: {
+            100: '#F5F8FA',
+            200: '#EBF1F5',
+            300: '#D8E1E8',
+            400: '#CED9E0',
+            500: '#A7B6C2',
+            600: '#8A9BA8',
+            700: '#738694',
+            800: '#5C7080',
+            900: '#404854',
+          },
+          success: '#0F9960',
+          warning: '#FFC940',
+          error: '#DB3737',
+        },
+        // Legacy colors (keep for compatibility with old /sim route)
         gray: {
           900: '#121212',
           800: '#1e1e1e',
@@ -71,6 +108,15 @@ export default {
           600: '#3182ce',
           500: '#4299e1',
         },
+      },
+      fontFamily: {
+        mono: ['"JetBrains Mono"', '"Fira Code"', '"SF Mono"', 'Consolas', 'monospace'],
+      },
+      boxShadow: {
+        'gotham-sm': '0 0 4px rgba(43, 149, 214, 0.3)',
+        'gotham': '0 0 8px rgba(43, 149, 214, 0.3)',
+        'gotham-lg': '0 0 12px rgba(43, 149, 214, 0.3)',
+        'gotham-inner': 'inset 0 0 4px rgba(43, 149, 214, 0.3)',
       },
       keyframes: {
         "accordion-down": {

@@ -1,2 +1,38 @@
+# Python
 .venv
-.env.development
+__pycache__/
+*.py[cod]
+*.so
+.Python
+
+# Environment - Local overrides only (keep .env.development in git)
+.env.local
+.env.production.local
+
+# Logs
+*.log
+scripts/logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Database
+*.db
+*.sqlite
+
+# Node
+node_modules/
+dist/
+.cache/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/

@@ -1,0 +1,60 @@
+services:
+  # Backend service (ECS architecture)
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    container_name: gameoflife-backend-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source code for hot reloading
+      - ./server/app:/app/app:cached
+      # Mount uv cache to speed up dependency installations
+      - uv-cache:/root/.cache/uv
+    environment:
+      # Development environment variables
+      - PYTHONUNBUFFERED=1
+      - DEBUG=true
+      - CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173"]
+      - UVICORN_RELOAD=true
+    env_file:
+      - .env.development
+      - .env.local  # Optional developer-specific overrides (gitignored)
+    networks:
+      - dev_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Frontend service (optional - can run natively instead)
+  frontend:
+    image: oven/bun:1.0.35
+    container_name: gameoflife-frontend-dev
+    working_dir: /app
+    ports:
+      - "3000:3000"
+      - "5173:5173"  # Vite default port
+    volumes:
+      - ./client:/app:cached
+      - /app/node_modules  # Prevent host node_modules from overriding container
+    command: bun run dev --host 0.0.0.0
+    environment:
+      - NODE_ENV=development
+      - VITE_WS_URL=ws://localhost:8000/ws/simulation
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - dev_network
+
+networks:
+  dev_network:
+    driver: bridge
+
+volumes:
+  uv-cache:
+    name: gameoflife-uv-cache

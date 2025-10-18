@@ -1,3 +1,7 @@
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -125,4 +129,63 @@
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-500;
+}
+
+/* Gotham Blueprint Styles */
+.gotham-panel {
+  @apply bg-gotham-dark-400/95 border border-gotham-gray-800 backdrop-blur-sm;
+}
+
+.gotham-border {
+  @apply border border-gotham-gray-800;
+}
+
+.gotham-glow {
+  box-shadow: 0 0 8px rgba(43, 149, 214, 0.3);
+}
+
+.gotham-glow-hover:hover {
+  box-shadow: 0 0 12px rgba(43, 149, 214, 0.4);
+}
+
+.gotham-button {
+  @apply px-4 py-2 bg-gotham-blueprint-400 hover:bg-gotham-blueprint-500
+         text-white font-medium text-sm border border-gotham-blueprint-600
+         transition-all duration-200 gotham-glow-hover;
+}
+
+.gotham-button-secondary {
+  @apply px-4 py-2 bg-gotham-dark-300 hover:bg-gotham-dark-200
+         text-gotham-gray-100 font-medium text-sm border border-gotham-gray-800
+         transition-all duration-200;
+}
+
+.gotham-input {
+  @apply bg-gotham-dark-500 border border-gotham-gray-800 text-gotham-gray-100
+         px-3 py-2 text-sm font-mono focus:border-gotham-blueprint-400
+         focus:ring-1 focus:ring-gotham-blueprint-400 transition-colors;
+}
+
+.gotham-scrollbar::-webkit-scrollbar {
+  @apply w-2;
+}
+
+.gotham-scrollbar::-webkit-scrollbar-track {
+  @apply bg-gotham-dark-500;
+}
+
+.gotham-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-gotham-gray-800 rounded-full;
+}
+
+.gotham-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-gotham-gray-700;
+}
+
+.gotham-data-row {
+  @apply hover:bg-gotham-dark-300 transition-colors duration-100 cursor-pointer;
+}
+
+.gotham-data-row:hover {
+  box-shadow: inset 0 0 4px rgba(43, 149, 214, 0.2);
 }

@@ -6,7 +6,7 @@ export default function Component() {
   const navigate = useNavigate();
 
   const handleStartSimulation = () => {
-    navigate('/sim');
+    navigate('/newsim');
   };
 
   return (

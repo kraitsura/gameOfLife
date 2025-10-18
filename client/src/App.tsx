@@ -1,7 +1,7 @@
 // client/src/App.tsx
-import SimulationController from './components/SimulationController';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import IntroPage from './pages/IntroPage';
+import NewSimulationController from './components/NewSimulationController';
 
 function App() {
   const wsUrl = process.env.NODE_ENV === 'development'
@@ -14,7 +14,7 @@ function App() {
         <main className="h-full">
           <Routes>
             <Route path="/" element={<IntroPage />} />
-            <Route path="/sim" element={<SimulationController websocketUrl={wsUrl} />} />
+            <Route path="/newsim" element={<NewSimulationController websocketUrl={wsUrl} />} />
           </Routes>
         </main>
       </div>
