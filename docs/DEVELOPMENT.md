@@ -476,6 +476,73 @@ npm install -g wscat
 wscat -c ws://localhost:8000/ws/simulation
 ```
 
+#### WebSocket "400 Bad Request" (Large Headers/Cookies)
+
+**Error:** WebSocket connection fails with `400 Bad Request` in Chrome, but works in Safari or incognito mode.
+
+**Cause:** Chrome is sending HTTP headers > 8KB during WebSocket handshake, typically from:
+- Large cookies from other localhost projects (e.g., Supabase, Auth0)
+- Browser extensions injecting headers (ad blockers, privacy tools)
+- Accumulated session/debug data in cookies
+
+**Diagnosis:**
+
+1. **Check if it's browser-specific:**
+   ```bash
+   # Test in Chrome incognito mode (disables extensions)
+   # Test in Safari
+   # If it works → cookies/extensions are the issue
+   ```
+
+2. **Check backend logs:**
+   ```bash
+   tail -f scripts/logs/backend.log
+   # Look for "Large WebSocket headers detected" warnings
+   ```
+
+3. **Inspect cookies:**
+   - Open Chrome DevTools (F12)
+   - Application tab → Storage → Cookies
+   - Check `localhost:5173` and `localhost:8000`
+   - Look for large cookies (> 1KB) or many cookies
+
+**Solutions:**
+
+**Option 1: Clear localhost cookies (Quick fix)**
+```bash
+# Chrome DevTools → Application tab → Storage → Cookies
+# Right-click on "localhost:5173" → Clear
+# Right-click on "localhost:8000" → Clear
+# Refresh page
+```
+
+**Option 2: Disable problematic extension**
+```bash
+# If incognito works, identify extension:
+# 1. Enable extensions one-by-one in incognito
+# 2. Test WebSocket connection after each
+# 3. Disable problematic extension
+```
+
+**Option 3: Increase header limits (Already configured)**
+The project is already configured to handle large headers via environment variables:
+- `WEBSOCKETS_MAX_LINE_LENGTH=32768` (32KB)
+- `WEBSOCKETS_MAX_NUM_HEADERS=256`
+
+If these are not set, add to `.env.development`:
+```bash
+WEBSOCKETS_MAX_LINE_LENGTH=32768
+WEBSOCKETS_MAX_NUM_HEADERS=256
+```
+
+**Prevention:**
+- Periodically clear localhost cookies during development
+- Use specific cookie paths to prevent cross-project cookie sharing
+- Test in incognito mode to catch extension-related issues
+- Monitor backend logs for header size warnings
+
+**Note:** This issue typically only occurs in development. Production won't have localhost cookies from other projects.
+
 #### Docker Build Fails
 
 **Error:** `failed to solve with frontend dockerfile.v0`
