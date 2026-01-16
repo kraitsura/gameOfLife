@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Dict, Set, Optional, Any, TYPE_CHECKING
+from typing import Dict, Set, Optional, Any, TYPE_CHECKING, Tuple
 from uuid import UUID, uuid4
 from datetime import datetime
 from app.simulation.core.interfaces import GameObject, Component
@@ -75,6 +75,9 @@ class Entity(GameObject):
         self.collision_mask = 0xFFFFFFFF  # Default to colliding with everything
         self.collision_layer = 0x00000001  # Default layer
         self.colliding_entities: Set[UUID] = set()
+
+        # Spatial grid tracking (Phase 1 optimization)
+        self._last_grid_cell: Optional[Tuple[int, int]] = None
 
 
     def update(self, context: 'SimulationContext', dt: float) -> None:
