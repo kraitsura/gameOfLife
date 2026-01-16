@@ -39,6 +39,12 @@ class VitalityComponent(Component):
         4. Decrease health when starving/exhausted
         5. Die when health reaches 0
         """
+        from app.simulation.models.entity import EntityState
+
+        # Don't update if already dead (prevents duplicate death logging)
+        if owner.state == EntityState.DEAD:
+            return
+
         self.age += dt
         self.last_ate += dt
 
@@ -79,7 +85,7 @@ class VitalityComponent(Component):
         owner.stats.max_energy = self.max_energy
         owner.stats.max_health = self.max_health
 
-        # Die when health depleted
+        # Die when health depleted (only log once)
         if self.current_health <= 0:
             logging.info(f"Entity {owner.id} died from health depletion")
             owner.kill()

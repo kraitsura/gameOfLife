@@ -54,6 +54,12 @@ class DietComponent(Component):
         5. Consume food on contact
         6. If no food and wall detected, turn away from wall
         """
+        from app.simulation.models.entity import EntityState
+
+        # Don't update if already dead
+        if owner.state == EntityState.DEAD:
+            return
+
         # Increase hunger over time
         self.hunger_level += dt * 0.1
 
@@ -70,10 +76,15 @@ class DietComponent(Component):
             if physics:
                 physics.apply_force(steering_force)
 
-            # Check if close enough to consume
+            # Check if close enough to attack/consume
             distance = (food_target.position - owner.position).magnitude()
             if distance < PHYSICS_CONFIG["INTERACTION_RANGE"]:
-                self._consume_food(owner, food_target, context)
+                # For plants, consume directly. For creatures, engage in combat
+                if food_target.type == EntityType.PLANT:
+                    self._consume_food(owner, food_target, context)
+                else:
+                    # Combat system for creature vs creature
+                    self._attack_prey(owner, food_target, context, dt)
         else:
             self.target_food_id = None
 
@@ -88,6 +99,9 @@ class DietComponent(Component):
         """
         Find the nearest food entity within vision range.
 
+        Also records feeding proximity interactions with same-species entities
+        to build familiarity for pack formation.
+
         Args:
             owner: The entity searching for food
             context: Simulation context with spatial grid
@@ -97,15 +111,16 @@ class DietComponent(Component):
         """
         from app.simulation.models import Entity
 
-        # Query nearby entities using spatial grid
-        nearby_entities = context.query_nearby_entities(
-            owner.position,
+        # Query nearby entities using query cache (Phase 2 optimization)
+        nearby_entities = context.query_cache.get_nearby(
+            owner.id,
             self.vision_range,
-            exclude_id=owner.id
+            context
         )
 
-        # Filter by diet preferences
+        # Filter by diet preferences and track same-species nearby
         food_candidates = []
+        same_species_nearby = []
         for entity in nearby_entities:
             if not isinstance(entity, Entity):
                 continue
@@ -113,6 +128,10 @@ class DietComponent(Component):
             # Check if this entity is food for us
             if self._is_food(entity, owner):
                 food_candidates.append(entity)
+
+            # Track same-species entities (potential pack members)
+            if hasattr(entity, 'species_id') and entity.species_id == owner.species_id:
+                same_species_nearby.append(entity)
 
         if not food_candidates:
             return None
@@ -126,6 +145,18 @@ class DietComponent(Component):
             if distance < min_distance:
                 min_distance = distance
                 nearest_food = food
+
+        # Record feeding proximity interactions with same-species
+        # If we found food and there are same-species entities nearby, they're hunting together
+        if nearest_food and same_species_nearby:
+            social = owner.get_component('SocialComponent')
+            if social:
+                for entity in same_species_nearby:
+                    # Check if they're also hunting/feeding (within reasonable distance of food)
+                    entity_to_food_dist = (entity.position - nearest_food.position).magnitude()
+                    if entity_to_food_dist < self.vision_range * 0.5:  # Within half vision range of same food
+                        # Record cooperative feeding/hunting interaction (weight 0.5 = minor interaction)
+                        social.record_interaction(entity.id, interaction_weight=0.5)
 
         return nearest_food
 
@@ -188,38 +219,113 @@ class DietComponent(Component):
 
     def _consume_food(self, owner: 'Entity', food: 'Entity', context: 'SimulationContext') -> None:
         """
-        Consume food entity and gain energy.
+        Consume food entity and gain energy (for plants only).
 
         Args:
             owner: The eating entity
-            food: The food entity
+            food: The food entity (should be a plant)
             context: Simulation context
         """
-        # Determine energy gained based on food type
-        if food.type == EntityType.PLANT:
-            energy_gained = 15.0
-        else:  # CREATURE
-            energy_gained = 30.0  # Meat is more nutritious
+        # Energy gained from plants (increased for balance)
+        energy_gained = 25.0
 
         # Restore energy via VitalityComponent
         vitality = owner.get_component('VitalityComponent')
         if vitality:
             actual_gained = vitality.restore_energy(energy_gained)
-            logging.debug(f"Entity {owner.id} consumed {food.type.value}, gained {actual_gained:.1f} energy")
+            logging.debug(f"Entity {owner.id} consumed plant, gained {actual_gained:.1f} energy")
 
-        # Reduce hunger
-        self.hunger_level = max(0.0, self.hunger_level - 50.0)
+        # Reduce hunger (partial reduction so creatures need to eat regularly)
+        self.hunger_level = max(0.0, self.hunger_level - 30.0)
 
-        # Remove food entity (plants regenerate, creatures die)
-        if food.type == EntityType.PLANT:
-            # Plant respawns elsewhere (handled by plant system)
-            # For now, just mark as dead
-            food.kill()
-        elif food.type == EntityType.CREATURE:
-            # Creature is killed
-            food.kill()
-
+        # Remove plant (will respawn elsewhere)
+        food.kill()
         self.target_food_id = None
+
+    def _attack_prey(self, attacker: 'Entity', prey: 'Entity', context: 'SimulationContext', dt: float) -> None:
+        """
+        Attack prey entity with damage-over-time combat system.
+
+        Damage is calculated based on:
+        - Pack size (more members = more damage)
+        - Attack/defense stats
+        - Energy ratio (low energy = less effective)
+
+        Args:
+            attacker: The attacking entity (carnivore/omnivore)
+            prey: The prey entity
+            context: Simulation context
+            dt: Delta time
+        """
+        from app.simulation.models import Pack
+
+        # Get pack sizes
+        attacker_pack_size = 1
+        if attacker.pack_id:
+            attacker_pack = context.get_by_id(Pack, attacker.pack_id)
+            if attacker_pack:
+                attacker_pack_size = len(attacker_pack.members)
+
+        prey_pack_size = 1
+        if prey.pack_id:
+            prey_pack = context.get_by_id(Pack, prey.pack_id)
+            if prey_pack:
+                prey_pack_size = len(prey_pack.members)
+
+        # Calculate combat strengths
+        # Attacker strength = attack * pack_size * energy_ratio
+        attacker_energy_ratio = attacker.stats.current_energy / max(attacker.stats.max_energy, 1)
+        attacker_strength = (
+            attacker.stats.attack *
+            attacker_pack_size *
+            attacker_energy_ratio
+        )
+
+        # Defender strength = defense * pack_size * energy_ratio
+        prey_energy_ratio = prey.stats.current_energy / max(prey.stats.max_energy, 1)
+        prey_strength = (
+            prey.stats.defense *
+            prey_pack_size *
+            prey_energy_ratio
+        )
+
+        # Calculate damage (minimum 0.5 to ensure progress)
+        base_damage = max(0.5, attacker_strength - prey_strength)
+        damage_per_second = base_damage * 10.0  # Scale up damage
+        damage = damage_per_second * dt
+
+        # Apply damage to prey
+        prey.stats.current_health -= damage
+
+        # Update prey's vitality component
+        prey_vitality = prey.get_component('VitalityComponent')
+        if prey_vitality:
+            prey_vitality.current_health = prey.stats.current_health
+
+        logging.debug(
+            f"Entity {attacker.id} (pack:{attacker_pack_size}, str:{attacker_strength:.1f}) "
+            f"attacks {prey.id} (pack:{prey_pack_size}, str:{prey_strength:.1f}) "
+            f"for {damage:.1f} damage. Prey health: {prey.stats.current_health:.1f}"
+        )
+
+        # Check if prey died
+        if prey.stats.current_health <= 0:
+            # Prey defeated - restore energy to attacker (increased for balance)
+            energy_gained = 60.0  # Meat is very nutritious
+
+            attacker_vitality = attacker.get_component('VitalityComponent')
+            if attacker_vitality:
+                actual_gained = attacker_vitality.restore_energy(energy_gained)
+                logging.info(
+                    f"Entity {attacker.id} defeated {prey.id} and gained {actual_gained:.1f} energy"
+                )
+
+            # Reduce hunger (partial reduction so carnivores need to hunt regularly)
+            self.hunger_level = max(0.0, self.hunger_level - 30.0)
+
+            # Kill the prey
+            prey.kill()
+            self.target_food_id = None
 
     def _detect_wall_in_vision(self, owner: 'Entity', context: 'SimulationContext') -> Optional[str]:
         """
