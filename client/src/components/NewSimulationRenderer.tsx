@@ -129,9 +129,13 @@ const NewSimulationRenderer: React.FC<NewSimulationRendererProps> = ({
             lastTime = currentTime - (elapsed % frameInterval);
             frameCount++;
 
-            // Clear canvas with solid black background
+            // Clear canvas in screen space (before any transforms)
+            const dpr = window.devicePixelRatio || 1;
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset to identity matrix
             ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, width, height);
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore(); // Restore the world transform
 
             const currentState = stateRef.current;
             const currentOptions = optionsRef.current;
@@ -140,6 +144,12 @@ const NewSimulationRenderer: React.FC<NewSimulationRendererProps> = ({
             if (currentOptions.showGrid) {
                 drawGrid(ctx, width, height, currentOptions.gridSize);
             }
+
+            // Clip all entity rendering to world boundaries
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, currentState.worldWidth || width, currentState.worldHeight || height);
+            ctx.clip();
 
             // Batch similar drawing operations
             // First draw all plants
@@ -160,6 +170,9 @@ const NewSimulationRenderer: React.FC<NewSimulationRendererProps> = ({
                     drawEntity(ctx, entity, currentOptions, currentState.worldWidth, currentState.worldHeight);
                 }
             }
+
+            // Restore context (remove clipping)
+            ctx.restore();
 
             // Continue render loop
             requestIdRef.current = requestAnimationFrame(render);
@@ -274,21 +287,10 @@ const drawEntity = (
 
     // Draw vision range if enabled
     if (options.showVision && entity.type === 'creature') {
-        ctx.save();
-
-        // Clip vision circle to world boundaries if near edges
-        if (worldWidth !== undefined && worldHeight !== undefined) {
-            ctx.beginPath();
-            ctx.rect(0, 0, worldWidth, worldHeight);
-            ctx.clip();
-        }
-
         ctx.beginPath();
         ctx.strokeStyle = `${color}33`;
         ctx.arc(position.x, position.y, entity.visionRange, 0, Math.PI * 2);
         ctx.stroke();
-
-        ctx.restore();
     }
 
     // Draw particle body

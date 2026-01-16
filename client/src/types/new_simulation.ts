@@ -77,3 +77,30 @@ export interface SpeciesStats {
   packCount: number;
 }
 
+// WebSocket message types (Phase 3: Delta encoding + MessagePack)
+export interface DeltaMessage {
+  type: 'delta';
+  frame: number;
+  tick: number;
+  deltaTime: number;
+  state: string;
+  entities: {
+    added: Record<string, any>;
+    modified: Record<string, any>;
+    removed: string[];
+  };
+  packs: {
+    added: Record<string, any>;
+    modified: Record<string, any>;
+    removed: string[];
+  };
+  species: Record<string, any>;
+}
+
+export interface FullStateMessage {
+  type: 'full';
+  state: any;
+  frame: number;
+  tick: number;
+}
+

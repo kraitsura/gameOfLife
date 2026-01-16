@@ -16,7 +16,7 @@ export function GothamButton({
   disabled,
   ...props
 }: GothamButtonProps) {
-  const baseStyles = 'inline-flex items-center justify-center gap-2 font-medium border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gotham-blueprint-400 focus:ring-offset-2 focus:ring-offset-gotham-dark-500';
+  const baseStyles = 'inline-flex items-center justify-center gap-2 font-medium border transition-all duration-200 focus:outline-none';
 
   const variantStyles = {
     primary: 'bg-gotham-blueprint-400 hover:bg-gotham-blueprint-500 text-white border-gotham-blueprint-600 shadow-gotham-sm hover:shadow-gotham disabled:bg-gotham-gray-800 disabled:border-gotham-gray-800 disabled:text-gotham-gray-600 disabled:shadow-none',

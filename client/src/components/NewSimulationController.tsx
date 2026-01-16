@@ -312,7 +312,7 @@ export default function NewSimulationController({ websocketUrl }: NewSimulationC
                       type="checkbox"
                       checked={value as boolean}
                       onChange={(e) => setRenderOption(key as any, e.target.checked)}
-                      className="w-4 h-4 bg-gotham-dark-500 border-gotham-gray-800 text-gotham-blueprint-400 focus:ring-gotham-blueprint-400 focus:ring-offset-gotham-dark-400"
+                      className="w-4 h-4 bg-gotham-dark-500 border-gotham-gray-800 text-gotham-blueprint-400 focus:outline-none"
                     />
                     <span>{key.replace(/([A-Z])/g, ' $1').replace(/^show/, '').trim()}</span>
                   </label>
@@ -336,7 +336,7 @@ export default function NewSimulationController({ websocketUrl }: NewSimulationC
                   step="0.1"
                   value={camera.zoom}
                   onChange={(e) => camera.setZoom(parseFloat(e.target.value))}
-                  className="w-full"
+                  className="w-full focus:outline-none"
                 />
               </div>
               <GothamButton variant="secondary" size="sm" onClick={camera.reset}>
@@ -350,68 +350,62 @@ export default function NewSimulationController({ websocketUrl }: NewSimulationC
   ];
 
   return (
-    <div className="fixed inset-0 bg-gotham-dark-500 flex flex-col overflow-hidden">
-      {/* Main Simulation Canvas */}
-      <div className="flex-1 relative">
-        <NewSimulationRenderer
-          state={state}
-          options={renderOptions}
-          width={state.worldWidth}
-          height={state.worldHeight}
-          camera={camera}
+    <>
+      <div className="fixed inset-0 bg-gotham-dark-500 flex flex-col overflow-hidden">
+        {/* Main Simulation Canvas */}
+        <div className="flex-1 relative">
+          <NewSimulationRenderer
+            state={state}
+            options={renderOptions}
+            width={state.worldWidth}
+            height={state.worldHeight}
+            camera={camera}
+          />
+
+          {/* Floating HUD - Top Left */}
+          <div className="absolute top-4 left-4 flex items-center gap-2 gotham-panel px-3 py-2">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-gotham-success' : 'bg-gotham-error'} animate-pulse`} />
+            <span className="text-xs font-medium text-gotham-gray-100">
+              {isConnected ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
+
+          {/* Floating HUD - Top Right */}
+          <div className="absolute top-4 right-4 gotham-panel px-3 py-2">
+            <div className="flex flex-col gap-1 text-xs font-mono">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gotham-gray-500">Tick:</span>
+                <span className="text-gotham-gray-100 font-semibold">{state.tickRate}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gotham-gray-500">Entities:</span>
+                <span className="text-gotham-gray-100 font-semibold">{state.entities.size}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gotham-gray-500">Zoom:</span>
+                <span className="text-gotham-gray-100 font-semibold">{camera.zoom.toFixed(2)}x</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Drawer */}
+        <BottomDrawer
+          tabs={drawerTabs}
+          defaultTab={activeTab}
+          onHeightChange={(height) => {}}
         />
 
-        {/* Floating HUD - Top Left */}
-        <div className="absolute top-4 left-4 flex items-center gap-2 gotham-panel px-3 py-2">
-          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-gotham-success' : 'bg-gotham-error'} animate-pulse`} />
-          <span className="text-xs font-medium text-gotham-gray-100">
-            {isConnected ? 'Connected' : 'Disconnected'}
-          </span>
-        </div>
-
-        {/* Floating HUD - Top Right */}
-        <div className="absolute top-4 right-4 gotham-panel px-3 py-2">
-          <div className="flex flex-col gap-1 text-xs font-mono">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-gotham-gray-500">Tick:</span>
-              <span className="text-gotham-gray-100 font-semibold">{state.tickRate}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-gotham-gray-500">Entities:</span>
-              <span className="text-gotham-gray-100 font-semibold">{state.entities.size}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-gotham-gray-500">Zoom:</span>
-              <span className="text-gotham-gray-100 font-semibold">{camera.zoom.toFixed(2)}x</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Hint */}
-        <div className="absolute bottom-4 left-4 gotham-panel px-3 py-2">
-          <div className="flex items-center gap-2 text-xs text-gotham-gray-500">
-            <kbd className="px-1.5 py-0.5 bg-gotham-dark-300 border border-gotham-gray-800 rounded font-mono">⌘K</kbd>
-            <span>Command Palette</span>
-          </div>
-        </div>
+        {/* Status Bar */}
+        <StatusBar items={statusItems} />
       </div>
 
-      {/* Bottom Drawer */}
-      <BottomDrawer
-        tabs={drawerTabs}
-        defaultTab={activeTab}
-        onHeightChange={(height) => {}}
-      />
-
-      {/* Status Bar */}
-      <StatusBar items={statusItems} />
-
-      {/* Command Palette */}
+      {/* Command Palette - Rendered outside main container */}
       <CommandPalette
         isOpen={commandPalette.isOpen}
         onClose={commandPalette.close}
         commands={commands}
       />
-    </div>
+    </>
   );
 }
