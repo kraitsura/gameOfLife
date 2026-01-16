@@ -1,0 +1,2 @@
+# This directory stores PID files for development processes
+# PID files are used by dev-native.sh for proper process cleanup
