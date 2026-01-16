@@ -15,14 +15,19 @@ class SimulationManager:
         self.world = SimulationContext(world_width, world_height)
         self._is_running: bool = False
         self.connections: Set[Any] = set()  # Add missing connections set
-        logging.basicConfig(level=logging.WARNING)
-        logging.debug("SimulationManager initialized with world size (%d, %d)", world_width, world_height)
+
+        # Configure logging to INFO level for better visibility
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        logging.info("SimulationManager initialized with world size (%d, %d)", world_width, world_height)
         self.fixed_dt = 0.016  # Fixed time step
         self.accumulator = 0.0
         self.last_update_time = time.time()
         self._update_task = None  # Store the update task
         self.plant_species_id: str | None = None  # Track plant species for spawning
-        self.plant_spawn_rate: float = 0.1  # 10% chance per tick to spawn a plant
+        self.plant_spawn_rate: float = 0.05  # 5% chance per tick = ~3 spawn attempts/sec instead of 6
 
     @property
     def is_running(self) -> bool:
@@ -32,46 +37,90 @@ class SimulationManager:
     async def start(self) -> None:
         """Start the simulation asynchronously."""
         if self.is_running:
-            logging.debug("Simulation already running.")
+            logging.info("Simulation already running, ignoring start request.")
             return
 
-        logging.debug("Simulation started.")
+        logging.info("Starting simulation...")
         self._is_running = True
         self._update_task = asyncio.create_task(self._update_loop())
+        logging.info("Simulation started successfully. Update task created.")
 
     async def _update_loop(self) -> None:
         """Main update loop running asynchronously."""
-        while self._is_running:
-            current_time = time.time()
-            frame_time = current_time - self.last_update_time
-            self.last_update_time = current_time
+        logging.info("Update loop started")
 
-            self.accumulator += frame_time
+        try:
+            while self._is_running:
+                try:
+                    current_time = time.time()
+                    frame_time = current_time - self.last_update_time
+                    self.last_update_time = current_time
 
-            while self.accumulator >= self.fixed_dt:
-                # Spawn random plants each tick (10% chance)
-                if self.plant_species_id and random.random() < self.plant_spawn_rate:
-                    self._spawn_random_plant()
+                    self.accumulator += frame_time
 
-                self.world.update(self.fixed_dt)
+                    while self.accumulator >= self.fixed_dt:
+                        # Spawn random plants each tick (10% chance)
+                        if self.plant_species_id and random.random() < self.plant_spawn_rate:
+                            self._spawn_random_plant()
 
-                # Clean up any out-of-bounds entities
-                self._cleanup_out_of_bounds_entities()
+                        self.world.update(self.fixed_dt)
 
-                self.accumulator -= self.fixed_dt
+                        # Clean up any out-of-bounds entities
+                        self._cleanup_out_of_bounds_entities()
 
-            # Allow other tasks to run
-            await asyncio.sleep(0.01)
+                        self.accumulator -= self.fixed_dt
+
+                    # Allow other tasks to run
+                    await asyncio.sleep(0.01)
+
+                except asyncio.CancelledError:
+                    # Task was cancelled (normal during pause/shutdown)
+                    logging.info("Update loop cancelled")
+                    raise  # Re-raise to properly handle cancellation
+
+                except Exception as e:
+                    # Log the error but continue the simulation
+                    logging.error(
+                        "Error in simulation update loop: %s",
+                        str(e),
+                        exc_info=True  # Include full stack trace
+                    )
+                    # Continue running despite the error
+                    await asyncio.sleep(0.1)  # Brief pause before retrying
+
+        except asyncio.CancelledError:
+            logging.info("Update loop task cancelled gracefully")
+        finally:
+            logging.info("Update loop stopped")
 
     async def pause(self) -> None:
         """Pause the simulation."""
-        logging.debug("Simulation paused.")
+        if not self.is_running:
+            logging.info("Simulation already paused, ignoring pause request.")
+            return
+
+        logging.info("Pausing simulation...")
         self._is_running = False
-        if self._update_task:
-            await self._update_task
+
+        if self._update_task and not self._update_task.done():
+            # Cancel the task instead of waiting for it to complete
+            # This prevents deadlock when the task is stuck
+            self._update_task.cancel()
+
+            try:
+                # Wait briefly for cancellation to complete
+                await asyncio.wait_for(self._update_task, timeout=2.0)
+            except asyncio.CancelledError:
+                logging.info("Update task cancelled successfully")
+            except asyncio.TimeoutError:
+                logging.warning("Update task cancellation timed out - task may be stuck")
+            except Exception as e:
+                logging.error("Error during task cancellation: %s", str(e), exc_info=True)
+
+        logging.info("Simulation paused successfully")
 
     def _spawn_random_plant(self) -> None:
-        """Spawn a random plant at a random position."""
+        """Spawn plants based on local density (carrying capacity)."""
         if not self.plant_species_id:
             return
 
@@ -80,13 +129,27 @@ class SimulationManager:
             logging.warning("Plant species not found for spawning")
             return
 
-        # Random position in world
+        # Random position candidate
         position = Vector2D(
             random.uniform(0, self.world.width),
             random.uniform(0, self.world.height)
         )
 
-        # Create and register plant entity
+        # Check local plant density (carrying capacity)
+        local_radius = 30.0
+        max_plants_in_radius = 5
+
+        nearby_entities = self.world.query_nearby_entities(position, local_radius)
+        plant_count = sum(
+            1 for e in nearby_entities
+            if hasattr(e, 'species_id') and e.species_id == self.plant_species_id
+        )
+
+        # Don't spawn if area is at carrying capacity
+        if plant_count >= max_plants_in_radius:
+            return
+
+        # Spawn plant
         plant = plant_species.create_entity(position)
         self.world.register(plant)
 

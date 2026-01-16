@@ -21,9 +21,9 @@ PHYSICS_CONFIG: Final = {
 
 VITALITY_CONFIG: Final = {
     "BASE_ENERGY": 100.0,
-    "ENERGY_DECAY_RATE": 0.0,  # Temporarily disabled for testing
-    "HUNGER_RATE": 0.0,  # Temporarily disabled for testing
-    "REPRODUCTION_THRESHOLD": 90.0
+    "ENERGY_DECAY_RATE": 0.2,  # Balanced rate: creatures survive ~8 seconds without food
+    "HUNGER_RATE": 0.1,  # Hunger increases when energy < 50%
+    "REPRODUCTION_THRESHOLD": 75.0  # Lowered to make reproduction more achievable
 }
 
 GRID_CONFIG: Final = {

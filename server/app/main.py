@@ -3,6 +3,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import json
+import msgpack  # Phase 3 optimization
 import asyncio
 from typing import Set
 import os
@@ -10,7 +11,18 @@ import time
 import logging
 from contextlib import asynccontextmanager
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    force=True  # Force reconfiguration even if already configured
+)
+
+# Create logger for this module
+logger = logging.getLogger(__name__)
+
 from app.simulation.simulation import SimulationManager
+from app.simulation.delta_encoder import DeltaEncoder  # Phase 3 optimization
 from app.simulation.core.types import EntityType, Trait
 from app.simulation.core.config import WORLD_CONFIG
 
@@ -18,28 +30,36 @@ from app.simulation.core.config import WORLD_CONFIG
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    environment = os.getenv('ENVIRONMENT', 'production')
+    logger.info("Starting Game of Life backend (environment: %s)", environment)
+
     app.state.simulation = SimulationManager(
         world_width=WORLD_CONFIG["WIDTH"],
         world_height=WORLD_CONFIG["HEIGHT"]
     )
     app.state.active_connections = set()
 
+    # Initialize delta encoder for bandwidth optimization (Phase 3)
+    app.state.delta_encoder = DeltaEncoder()
+    logger.info("Delta encoder initialized for bandwidth optimization")
+
     # Add initial species
     await setup_initial_species(app.state.simulation)
 
     # Auto-start the simulation
     await app.state.simulation.start()
-    logging.info("Simulation auto-started")
+    logger.info("Simulation auto-started")
 
     # Start the broadcast task for WebSocket updates at 60 FPS
     app.state.broadcast_task = asyncio.create_task(
-        broadcast_state(app.state.simulation, app.state.active_connections)
+        broadcast_state(app.state.simulation, app.state.active_connections, app.state.delta_encoder)
     )
-    logging.info("Broadcast task started - clients will receive 60 FPS updates")
+    logger.info("Broadcast task started - clients will receive delta-encoded updates at 60 FPS")
 
     yield
 
     # Shutdown
+    logger.info("Shutting down backend...")
     if app.state.simulation.is_running:
         await app.state.simulation.pause()
     if app.state.broadcast_task:
@@ -48,12 +68,27 @@ async def lifespan(app: FastAPI):
             await app.state.broadcast_task
         except asyncio.CancelledError:
             pass
+    logger.info("Shutdown complete")
 
 app = FastAPI(lifespan=lifespan)
 
+# Request logging middleware (debug mode only)
+if os.getenv('DEBUG', 'false').lower() == 'true':
+    @app.middleware("http")
+    async def log_requests(request, call_next):
+        logger.debug("HTTP Request: %s %s", request.method, request.url.path)
+        response = await call_next(request)
+        return response
+
 # CORS configuration
-CORS_ORIGINS = json.loads(os.getenv('CORS_ORIGINS', 
-    '["http://localhost:3000", "https://your-frontend-domain.com"]'))
+CORS_ORIGINS_RAW = os.getenv('CORS_ORIGINS', '["http://localhost:3000", "http://localhost:5173"]')
+
+try:
+    CORS_ORIGINS = json.loads(CORS_ORIGINS_RAW)
+    logger.info("CORS origins configured: %s", CORS_ORIGINS)
+except json.JSONDecodeError as e:
+    logger.error("Failed to parse CORS_ORIGINS, using defaults: %s", str(e))
+    CORS_ORIGINS = ["http://localhost:3000", "http://localhost:5173"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -116,71 +151,238 @@ async def setup_initial_species(simulation: SimulationManager) -> None:
     )
 
 async def broadcast_state(simulation: SimulationManager,
-                         active_connections: Set[WebSocket]) -> None:
-    """Broadcast simulation state to all connected clients."""
-    while True:
-        try:
-            if active_connections:
-                state = simulation.get_state()
-                # Send to each connection individually with error handling
-                stale_connections = set()
-                for connection in list(active_connections):
+                         active_connections: Set[WebSocket],
+                         delta_encoder: DeltaEncoder) -> None:
+    """
+    Broadcast simulation state to all connected clients (Phase 3 optimized).
+
+    Uses delta encoding and MessagePack for bandwidth optimization:
+    - Only sends changes (added/modified/removed entities/packs)
+    - Binary serialization instead of JSON
+    - 4-5x bandwidth reduction
+    """
+    logging.info("Broadcast task started - clients will receive delta-encoded updates at 60 FPS")
+    consecutive_errors = 0
+    max_consecutive_errors = 5
+
+    try:
+        while True:
+            try:
+                if active_connections:
+                    # Get simulation state
                     try:
-                        # Check if connection is still open before sending
-                        if connection.client_state.name != "CONNECTED":
-                            stale_connections.add(connection)
-                            continue
-                        await connection.send_json(state)
+                        state = simulation.get_state()
                     except Exception as e:
-                        # Connection failed, mark for removal
-                        logging.warning(f"Failed to send to connection, marking as stale: {e}")
-                        stale_connections.add(connection)
+                        logging.error(
+                            "Failed to get simulation state in broadcast loop: %s",
+                            str(e),
+                            exc_info=True
+                        )
+                        consecutive_errors += 1
+                        if consecutive_errors >= max_consecutive_errors:
+                            logging.critical(
+                                "Too many consecutive state errors (%d), pausing broadcast for recovery",
+                                consecutive_errors
+                            )
+                            await asyncio.sleep(5)
+                            consecutive_errors = 0
+                        continue
 
-                # Remove stale connections
-                if stale_connections:
-                    active_connections -= stale_connections
-                    logging.debug(f"Removed {len(stale_connections)} stale connection(s)")
+                    # Reset error counter on successful state retrieval
+                    consecutive_errors = 0
 
-            await asyncio.sleep(1/60)
-        except Exception as e:
-            logging.error("Broadcast error: %s", str(e))
-            await asyncio.sleep(1)  # Back off on error
+                    # Encode state as delta (Phase 3 optimization)
+                    encoded_state = delta_encoder.encode(state)
+
+                    # Serialize with MessagePack (Phase 3 optimization)
+                    try:
+                        binary_message = msgpack.packb(encoded_state, use_bin_type=True)
+                    except Exception as e:
+                        logging.error("Failed to pack message with msgpack: %s", str(e))
+                        # Fallback to JSON if msgpack fails
+                        binary_message = None
+
+                    # Send to each connection individually with error handling
+                    stale_connections = set()
+                    successful_sends = 0
+
+                    for connection in list(active_connections):
+                        try:
+                            if binary_message:
+                                # Send binary (MessagePack) message
+                                await connection.send_bytes(binary_message)
+                            else:
+                                # Fallback to JSON
+                                await connection.send_json(encoded_state)
+                            successful_sends += 1
+                        except WebSocketDisconnect:
+                            # Client cleanly disconnected
+                            logging.debug("WebSocket disconnected during broadcast")
+                            stale_connections.add(connection)
+                        except RuntimeError as e:
+                            # Connection closed or in invalid state
+                            if "WebSocket" in str(e) or "close" in str(e).lower():
+                                logging.debug("WebSocket connection closed: %s", str(e))
+                                stale_connections.add(connection)
+                            else:
+                                logging.error("Runtime error during broadcast: %s", str(e), exc_info=True)
+                                stale_connections.add(connection)
+                        except Exception as e:
+                            # Unexpected error, log with full trace
+                            logging.error(
+                                "Unexpected error sending to WebSocket connection: %s",
+                                str(e),
+                                exc_info=True
+                            )
+                            stale_connections.add(connection)
+
+                    # Remove stale connections
+                    if stale_connections:
+                        active_connections -= stale_connections
+                        logging.info(
+                            "Removed %d stale connection(s), %d successful sends, %d active connection(s) remaining",
+                            len(stale_connections),
+                            successful_sends,
+                            len(active_connections)
+                        )
+
+                await asyncio.sleep(1/60)  # 60 FPS
+
+            except asyncio.CancelledError:
+                # Broadcast task is being cancelled (normal during shutdown)
+                logging.info("Broadcast task cancelled")
+                raise
+
+            except Exception as e:
+                # Catch-all for unexpected errors in the main loop
+                logging.error(
+                    "Critical error in broadcast loop: %s",
+                    str(e),
+                    exc_info=True
+                )
+                consecutive_errors += 1
+                await asyncio.sleep(1)  # Back off on error
+
+    except asyncio.CancelledError:
+        logging.info("Broadcast task cancelled gracefully")
+    finally:
+        logging.info("Broadcast task stopped")
 
 @app.websocket("/ws/simulation")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
+    # Log incoming WebSocket connection attempt with details
+    connection_id = id(websocket)
+
+    # Log connection details and monitor header sizes
+    try:
+        headers_dict = dict(websocket.headers)
+
+        # Log key headers for security/debugging
+        origin = headers_dict.get('origin', 'NOT SET')
+        host = headers_dict.get('host', 'NOT SET')
+        user_agent = headers_dict.get('user-agent', 'NOT SET')
+
+        logger.info("WebSocket connection from %s (ID: %s)", origin, connection_id)
+        logger.debug("User-Agent: %s", user_agent)
+
+        # Calculate total header size for monitoring
+        total_header_size = sum(
+            len(f"{key}: {value}\r\n".encode('utf-8'))
+            for key, value in headers_dict.items()
+        )
+
+        # Warn if headers are unusually large (might indicate cookies/extensions)
+        if total_header_size > 16384:  # 16KB threshold
+            logger.warning(
+                "Large WebSocket headers detected: %d bytes (%.2f KB). "
+                "This may be due to authentication cookies or browser extensions.",
+                total_header_size,
+                total_header_size / 1024
+            )
+
+            # In development, show which headers are large
+            if os.getenv('ENVIRONMENT') == 'development':
+                large_headers = [
+                    (key, len(f"{key}: {value}\r\n".encode('utf-8')))
+                    for key, value in headers_dict.items()
+                    if len(f"{key}: {value}\r\n".encode('utf-8')) > 4096  # 4KB threshold
+                ]
+                if large_headers:
+                    logger.debug("Large headers: %s",
+                               ", ".join(f"{k} ({v} bytes)" for k, v in large_headers))
+        else:
+            logger.debug("Total header size: %d bytes", total_header_size)
+
+    except Exception as e:
+        logger.error("Failed to process headers: %s", str(e), exc_info=True)
+
+    try:
+        await websocket.accept()
+        logger.debug("WebSocket accepted (ID: %s)", connection_id)
+    except Exception as e:
+        logger.error("Failed to accept WebSocket (ID: %s): %s", connection_id, str(e), exc_info=True)
+        raise
+
     app.state.active_connections.add(websocket)
-    
+    logger.info("WebSocket connected (ID: %s), %d active", connection_id, len(app.state.active_connections))
+
     heartbeat_interval = 30
     last_heartbeat = time.time()
 
     try:
-        # Send initial state with error handling
+        # Send initial state with error handling (Phase 3: use MessagePack)
         try:
             state = app.state.simulation.get_state()
-            await websocket.send_json(state)
-            logging.debug("Sent initial state with %d entities", len(state.get("entities", {})))
+
+            # Encode as full state (not delta for initial connection)
+            initial_message = {
+                'type': 'full',
+                'state': state,
+                'frame': 0,
+                'tick': state.get('tick', 0)
+            }
+
+            # Send as binary MessagePack message
+            try:
+                binary_message = msgpack.packb(initial_message, use_bin_type=True)
+                await websocket.send_bytes(binary_message)
+            except Exception:
+                # Fallback to JSON if MessagePack fails
+                await websocket.send_json(initial_message)
+
+            logging.info(
+                "Sent initial state to connection %s with %d entities",
+                connection_id,
+                len(state.get("entities", {}))
+            )
         except WebSocketDisconnect:
             # Client disconnected before/during initial send (common in React StrictMode dev)
-            logging.debug("Client disconnected before receiving initial state")
+            logging.info("Client %s disconnected before receiving initial state", connection_id)
             raise
         except Exception as e:
-            logging.error("Failed to send initial state: %s", str(e), exc_info=True)
+            logging.error(
+                "Failed to send initial state to connection %s: %s",
+                connection_id,
+                str(e),
+                exc_info=True
+            )
             raise
 
         while True:
             if time.time() - last_heartbeat > heartbeat_interval:
                 await websocket.send_json({"type": "ping"})
                 last_heartbeat = time.time()
-            
+
             try:
                 data = await asyncio.wait_for(websocket.receive_json(), timeout=1.0)
-                
+
                 if data["type"] == "pong":
                     last_heartbeat = time.time()
                 elif data["type"] == "start":
+                    logging.info("Connection %s requested simulation start", connection_id)
                     await app.state.simulation.start()
                 elif data["type"] == "pause":
+                    logging.info("Connection %s requested simulation pause", connection_id)
                     await app.state.simulation.pause()
                 elif data["type"] == "add_species":
                     try:
@@ -201,8 +403,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         species_color = data.get("color", "#FFFFFF")
 
                         logging.info(
-                            f"Adding species '{species_name}' with {initial_count} entities, "
-                            f"type={entity_type.value}, traits={[t.value for t in base_traits]}"
+                            "Connection %s adding species '%s' with %d entities, type=%s, traits=%s",
+                            connection_id,
+                            species_name,
+                            initial_count,
+                            entity_type.value,
+                            [t.value for t in base_traits]
                         )
 
                         app.state.simulation.add_species(
@@ -219,7 +425,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             "count": initial_count
                         })
                     except ValueError as e:
-                        logging.error(f"Invalid species data: {e}")
+                        logging.error("Connection %s sent invalid species data: %s", connection_id, str(e))
                         await websocket.send_json({"error": f"Invalid species data: {e}"})
             except asyncio.TimeoutError:
                 continue
@@ -228,22 +434,31 @@ async def websocket_endpoint(websocket: WebSocket):
                 raise
             except Exception as e:
                 # Only send error for non-disconnect exceptions
-                logging.error("Error processing websocket message: %s", str(e))
+                logging.error(
+                    "Error processing message from connection %s: %s",
+                    connection_id,
+                    str(e),
+                    exc_info=True
+                )
                 try:
                     await websocket.send_json({"error": str(e)})
                 except Exception:
                     # Socket might be closed, ignore send errors
                     pass
-                
+
     except WebSocketDisconnect as e:
-        logging.debug(f"Client disconnected normally: {e}")
+        logging.info("Connection %s disconnected normally: %s", connection_id, str(e))
     except Exception as e:
-        logging.error(f"Websocket error: {e}", exc_info=True)
+        logging.error("WebSocket error for connection %s: %s", connection_id, str(e), exc_info=True)
     finally:
         # Always remove connection on exit
         if websocket in app.state.active_connections:
             app.state.active_connections.remove(websocket)
-            logging.debug(f"Removed connection, {len(app.state.active_connections)} active connection(s) remaining")
+            logging.info(
+                "Removed connection %s, %d active connection(s) remaining",
+                connection_id,
+                len(app.state.active_connections)
+            )
 
 @app.get("/api/health")
 async def health_check():

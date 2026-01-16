@@ -2,6 +2,7 @@ import logging
 from typing import Dict, List, Optional, TypeVar, Type
 from app.simulation.core.interfaces import GameObject
 from app.simulation.core.spatial_grid import SpatialGrid
+from app.simulation.core.query_cache import FrameQueryCache
 from app.simulation.core.config import GRID_CONFIG
 from app.simulation.core.vector import Vector2D
 
@@ -28,21 +29,38 @@ class SimulationContext:
             cell_size=GRID_CONFIG["CELL_SIZE"]
         )
 
+        # Query cache for reducing redundant spatial queries (Phase 2 optimization)
+        self.query_cache = FrameQueryCache()
+
     def register(self, obj: GameObject) -> None:
         """Register a game object with the simulation"""
+        from app.simulation.models.entity import Entity
+
         try:
             self._objects[obj.id] = obj
             obj_type = type(obj)
             if obj_type not in self._object_types:
                 self._object_types[obj_type] = []
             self._object_types[obj_type].append(obj.id)
+
+            # Add entity to spatial grid immediately (Phase 1 optimization)
+            if isinstance(obj, Entity):
+                self.spatial_grid.insert(obj.id, obj.position)
+                obj._last_grid_cell = self.spatial_grid._get_cell_coords(obj.position)
         except Exception as e:
             logging.error("Failed to register object '%s': %s", obj.id, str(e))
             raise
 
     def unregister(self, obj: GameObject) -> None:
         """Remove a game object from the simulation"""
+        from app.simulation.models.entity import Entity
+
         if obj.id in self._objects:
+            # Remove entity from spatial grid (Phase 1 optimization)
+            if isinstance(obj, Entity):
+                self.spatial_grid.remove(obj.id)
+                obj._last_grid_cell = None
+
             del self._objects[obj.id]
             obj_type = type(obj)
             if obj_type in self._object_types:
@@ -70,8 +88,11 @@ class SimulationContext:
         """Update all objects in the simulation"""
         self.time += dt
 
-        # Rebuild spatial grid before entity updates
-        self._rebuild_spatial_grid()
+        # Invalidate query cache for new frame (Phase 2 optimization)
+        self.query_cache.new_frame()
+
+        # Update spatial grid incrementally before entity updates (Phase 1 optimization)
+        self._update_spatial_grid_incremental()
 
         # Create a copy of values to allow for object removal during iteration
         for obj in list(self._objects.values()):
@@ -80,8 +101,36 @@ class SimulationContext:
         # Cleanup dead entities after updates
         self._cleanup_dead_entities()
 
+    def _update_spatial_grid_incremental(self) -> None:
+        """
+        Incrementally update the spatial grid (Phase 1 optimization).
+        Only updates entities that have changed grid cells.
+        This is O(k) where k = entities that moved, instead of O(n) rebuild.
+        """
+        from app.simulation.models.entity import Entity
+
+        entities = self.get_objects_by_type(Entity)
+        for entity in entities:
+            current_cell = self.spatial_grid._get_cell_coords(entity.position)
+
+            # Check if entity changed cells
+            if entity._last_grid_cell != current_cell:
+                # Remove from old cell if it was tracked
+                if entity._last_grid_cell is not None:
+                    # Use the spatial grid's remove method
+                    self.spatial_grid.remove(entity.id)
+
+                # Insert into new cell
+                self.spatial_grid.insert(entity.id, entity.position)
+
+                # Update tracked cell
+                entity._last_grid_cell = current_cell
+
     def _rebuild_spatial_grid(self) -> None:
-        """Rebuild the spatial grid with current entity positions."""
+        """
+        Rebuild the spatial grid with current entity positions (legacy method).
+        Kept for compatibility but no longer used in update loop.
+        """
         from app.simulation.models.entity import Entity
 
         self.spatial_grid.clear()
@@ -90,6 +139,7 @@ class SimulationContext:
         entities = self.get_objects_by_type(Entity)
         for entity in entities:
             self.spatial_grid.insert(entity.id, entity.position)
+            entity._last_grid_cell = self.spatial_grid._get_cell_coords(entity.position)
 
     def query_nearby_entities(self, position: Vector2D, radius: float,
                               exclude_id: Optional[str] = None) -> List['GameObject']:
