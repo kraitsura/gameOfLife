@@ -18,7 +18,12 @@ RUN uv sync --frozen --no-dev
 # Copy application code
 COPY . .
 
-# Run application using uv
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Run application using uv with optimized settings
+CMD ["uv", "run", "uvicorn", "app.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--loop", "uvloop", \
+     "--timeout-keep-alive", "75", \
+     "--timeout-graceful-shutdown", "30"]
 
 EXPOSE 8000

@@ -2,7 +2,7 @@
 
 A real-time multi-species simulation inspired by Conway's Game of Life, featuring complex particle-based algorithms. Built with React, PixiJS, FastAPI, WebSockets, and Docker.
 
-## 🚀 Features
+## Features
 
 - Real-time multi-species particle simulation
 - Complex particle-based algorithms
@@ -12,7 +12,7 @@ A real-time multi-species simulation inspired by Conway's Game of Life, featurin
 - Scalable frontend architecture
 - SQLite database for species persistence
 
-## 🛠 Tech Stack
+## Tech Stack
 
 - **Frontend**: React, PixiJS, TypeScript, Vite
 - **Backend**: FastAPI, Python, WebSockets
@@ -21,14 +21,14 @@ A real-time multi-species simulation inspired by Conway's Game of Life, featurin
 - **Build Tools**: Bash scripts, Environment management
 - **Additional**: SSL/TLS with Certbot, Watchtower for updates
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Docker and Docker Compose
 - Node.js ≥ 18 (for local development)
 - Python ≥ 3.11 (for local development)
 - Bash shell
 
-## 🏗 Project Structure
+## Project Structure
 
 ```
 circular-life-simulation/
@@ -49,7 +49,7 @@ circular-life-simulation/
 └── docker-compose.yml        # Docker composition
 ```
 
-## 🔧 Setup and Installation
+## Setup and Installation
 
 ### 1. Initial Setup
 
@@ -129,7 +129,7 @@ VITE_WS_URL=ws://localhost:8000/ws|wss://your-domain.com/ws
 ./scripts/build.sh -e production -s -p
 ```
 
-## 🚀 Deployment
+## Deployment
 
 ### 1. Hetzner Setup
 
@@ -168,7 +168,7 @@ docker compose -f docker-compose.yml up -d
 docker compose up -d --scale frontend=3
 ```
 
-## 🔍 Monitoring and Maintenance
+## Monitoring and Maintenance
 
 ### View Logs
 
@@ -200,7 +200,7 @@ docker compose exec backend ./backup.sh
 docker compose exec backend ./restore.sh backup_file.sql
 ```
 
-## 🛠 Development Commands
+## Development Commands
 
 ### Frontend Development
 
@@ -231,7 +231,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-## 🔐 Security Notes
+## Security Notes
 
 - Always use HTTPS in production
 - Keep environment files secure and never commit them to version control
@@ -239,7 +239,7 @@ uvicorn app.main:app --reload
 - Monitor logs for suspicious activities
 - Backup database regularly
 
-## 📝 Scripts Reference
+## Scripts Reference
 
 ### build.sh Options
 ```bash

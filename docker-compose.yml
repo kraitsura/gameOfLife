@@ -23,9 +23,7 @@ services:
       context: ./server
       dockerfile: Dockerfile
     environment:
-      - MAX_WORKERS=4
       - CORS_ORIGINS=["http://localhost", "https://simulation.aaryareddy.com", "http://simulation.aaryareddy.com"]
-      - UVICORN_WORKERS=4
       - UVICORN_WS_PING_INTERVAL=20
       - UVICORN_WS_PING_TIMEOUT=20
     healthcheck:
@@ -34,6 +32,15 @@ services:
       timeout: 10s
       retries: 3
     restart: unless-stopped
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     networks:
       - app_network
 
